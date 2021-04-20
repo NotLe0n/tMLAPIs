@@ -36,6 +36,15 @@ app.post('/author_api', async (request, response) => {
   response.status(200).send(mods);
 });
 
+app.post('/list_api', async (request, response) => {
+  console.log('Got a request for a list');
+  
+  const mods = await scrapeModList()
+
+  // send data to frontend
+  response.status(200).send(mods);
+});
+
 // returns a json array
 async function scrapeAuthorData(url) {
   let mods = [];
@@ -68,6 +77,47 @@ async function scrapeAuthorData(url) {
           "RankTotal": RankTotal,
           "DownloadsTotal": DownloadsTotal,
           "DownloadsYesterday": DownloadsYesterday
+        });
+      }
+    }).catch(console.error);
+
+  return mods;
+}
+
+async function scrapeModList() {
+  let mods = [];
+
+  await axios("http://javid.ddns.net/tModLoader/modmigrationprogress.php")
+    .then(site => {
+      const html = site.data;
+      const $ = cheerio.load(html);
+
+      // find the *first* table
+      const table = $('.primary')[0];
+      // firstChild is the <tbody>, get its children
+      const rows = table.firstChild.children;
+
+      let DisplayName;
+      let DownloadsTotal;
+      let DownloadsYesterday;
+      let tModLoaderVersion;
+      let InternalName;
+
+      // go trough all rows and grab the data
+      for (let i = 1; i < rows.length; i++) {
+        DisplayName = rows[i].children[0].children[0].data;
+        DownloadsTotal = rows[i].children[1].children[0].data;
+        DownloadsYesterday = rows[i].children[2].children[0].data;
+        tModLoaderVersion = rows[i].children[3].children[0].data;
+        InternalName = rows[i].children[4].children[0].data;
+
+        // generate json
+        mods.push({
+          "DisplayName": DisplayName,
+          "DownloadsTotal": DownloadsTotal,
+          "DownloadsYesterday": DownloadsYesterday,
+          "tModLoaderVersion": tModLoaderVersion,
+          "InternalName": InternalName
         });
       }
     }).catch(console.error);
