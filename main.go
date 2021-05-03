@@ -18,6 +18,7 @@ func returnJsonFromStruct(w http.ResponseWriter, data interface{}, code int) {
 
 var wg sync.WaitGroup
 
+var imgHandler http.Handler
 var serverHandler *http.ServeMux
 var server http.Server
 
@@ -71,6 +72,9 @@ func modInfoHandler(w http.ResponseWriter, r *http.Request) {
 func main() {
 	serverHandler = http.NewServeMux()
 	server = http.Server{Addr: ":3000", Handler: serverHandler}
+
+	imgHandler = http.FileServer(http.Dir("img"))
+	serverHandler.Handle("/img/", http.StripPrefix("/img/", imgHandler))
 
 	serverHandler.HandleFunc("/author_api/", authorApiHandler)
 	serverHandler.HandleFunc("/modList", modListHandler)
