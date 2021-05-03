@@ -9,13 +9,6 @@ import (
 	"sync"
 )
 
-//write an json error to w
-func errorJson(w http.ResponseWriter, msg string, code int) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-	json.NewEncoder(w).Encode(`{"error":"` + msg + `"}`)
-}
-
 //send a response with a json body constructed from data over w
 func returnJsonFromStruct(w http.ResponseWriter, data interface{}, code int) {
 	w.Header().Set("Content-Type", "application/json")
@@ -31,14 +24,14 @@ var server http.Server
 func authorApiHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("Got a request on /author_api/")
 	if r.Method != http.MethodGet {
-		errorJson(w, "Request must be GET", http.StatusBadRequest)
+		http.Error(w, "Request must be GET", http.StatusBadRequest)
 		return
 	}
 	var steamId string = r.URL.Path[len("/author_api/"):]
 	authorStats, err := GetAuthorStats(steamId)
 	if err != nil {
 		log.Println(err)
-		errorJson(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	returnJsonFromStruct(w, authorStats, http.StatusOK)
@@ -47,16 +40,32 @@ func authorApiHandler(w http.ResponseWriter, r *http.Request) {
 func modListHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("Got a request on /modList")
 	if r.Method != http.MethodGet {
-		errorJson(w, "Request must be GET", http.StatusBadRequest)
+		http.Error(w, "Request must be GET", http.StatusBadRequest)
 		return
 	}
 	modList, err := GetModList()
 	if err != nil {
-		log.Panicln(err)
-		errorJson(w, err.Error(), http.StatusInternalServerError)
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	returnJsonFromStruct(w, modList, http.StatusOK)
+}
+
+func modInfoHandler(w http.ResponseWriter, r *http.Request) {
+	log.Println("Got a request on /modInfo")
+	if r.Method != http.MethodGet {
+		http.Error(w, "Request must be GET", http.StatusBadRequest)
+		return
+	}
+	ModName := r.URL.Query().Get("modname")
+	ModInfo, err := getModInfo(ModName)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(ModInfo)
 }
 
 func main() {
@@ -65,6 +74,7 @@ func main() {
 
 	serverHandler.HandleFunc("/author_api/", authorApiHandler)
 	serverHandler.HandleFunc("/modList", modListHandler)
+	serverHandler.HandleFunc("/modInfo", modInfoHandler)
 
 	wg.Add(1)
 	go func() {
