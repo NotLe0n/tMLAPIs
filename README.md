@@ -5,7 +5,11 @@ TMLAPIS provides useful tModLoader json apis for making dynamic websites. This A
 ## Usage
 ## Author API
 
-Making a GET request on `https://tmlapis.repl.co/author_api/<steam64id>` you recieve a list of all mods the given user has made.
+Making a GET request on `https://tmlapis.repl.co/author_api/<steam64id>` you recieve 
+- the steam name of the user
+- the Total Downloads Combined
+- Yesterdays Total Downloads Combined
+- a list of all mods the given user has made.
 
 Example nodejs code:
 ```js
