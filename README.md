@@ -40,3 +40,8 @@ fetch(url, settings)
         console.log(json);
     });
 ```
+
+## Item Image API
+
+You can get the image of any Item with this url: `https://tmlapis.repl.co/img/Item_<item id>.png`.<br>
+Items which have a sprite sheet are cut down to a singular frame of the animation.
