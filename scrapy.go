@@ -45,24 +45,8 @@ type ModInfo struct {
 	DownloadsYesterday int
 }
 
-func GetAuthorInfoHtml(steamId string) (*html.Node, error) {
-	resp, err := http.Get("http://javid.ddns.net/tModLoader/tools/ranksbysteamid.php?steamid64=" + steamId)
-	if err != nil {
-		return nil, err
-	}
-	return html.Parse(resp.Body)
-}
-
-func GetModListHtml() (*html.Node, error) {
-	resp, err := http.Get("http://javid.ddns.net/tModLoader/modmigrationprogress.php")
-	if err != nil {
-		return nil, err
-	}
-	return html.Parse(resp.Body)
-}
-
-func GetModListTotalDonwloadsHtml() (*html.Node, error) {
-	resp, err := http.Get("http://javid.ddns.net/tModLoader/modmigrationprogressalltime.php")
+func GetHtml(url string) (*html.Node, error) {
+	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err
 	}
@@ -171,7 +155,7 @@ func getModInfo(modName string) (*ModInfo, error) {
 }
 
 func GetAuthorStats(steamId string) ([]AuthorModStats, error) {
-	doc, err := GetAuthorInfoHtml(steamId)
+	doc, err := GetHtml("http://javid.ddns.net/tModLoader/tools/ranksbysteamid.php?steamid64=" + steamId)
 	if err != nil {
 		return nil, err
 	}
@@ -212,7 +196,7 @@ func GetAuthorStats(steamId string) ([]AuthorModStats, error) {
 }
 
 func GetModList() ([]ListModInfo, error) {
-	doc, err := GetModListHtml()
+	doc, err := GetHtml("http://javid.ddns.net/tModLoader/modmigrationprogress.php")
 	if err != nil {
 		return nil, err
 	}
@@ -263,7 +247,7 @@ type RankDownloadTotalInfo struct {
 }
 
 func GetDownloadsTotalMap() (map[string]RankDownloadTotalInfo, error) {
-	doc, err := GetModListTotalDonwloadsHtml()
+	doc, err := GetHtml("http://javid.ddns.net/tModLoader/modmigrationprogressalltime.php")
 	if err != nil {
 		return nil, err
 	}
