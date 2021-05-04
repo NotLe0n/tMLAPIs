@@ -11,13 +11,6 @@ import (
 	"golang.org/x/net/html"
 )
 
-type AuthorModStats struct {
-	RankTotal          int
-	DisplayName        string
-	DownloadsTotal     int
-	DownloadsYesterday int
-}
-
 type ListModInfo struct {
 	DisplayName        string
 	Rank               int
@@ -152,47 +145,6 @@ func getModInfo(modName string) (*ModInfo, error) {
 	}
 
 	return &result, nil
-}
-
-func GetAuthorStats(steamId string) ([]AuthorModStats, error) {
-	doc, err := GetHtml("http://javid.ddns.net/tModLoader/tools/ranksbysteamid.php?steamid64=" + steamId)
-	if err != nil {
-		return nil, err
-	}
-	tBody, err := GetNodesByTag(doc, "tbody")
-	if err != nil {
-		return nil, err
-	}
-	table, err := GetNodesByTag(tBody[0], "tr")
-	if err != nil {
-		return nil, err
-	}
-	var modStats []AuthorModStats = make([]AuthorModStats, 0)
-	for _, v := range table[1:] {
-		tds, err := GetNodesByTag(v, "td")
-		if err != nil {
-			return nil, err
-		}
-		rankTotal, err := strconv.Atoi(getNodeContent(tds[0]))
-		if err != nil {
-			return nil, err
-		}
-		downloadsTotal, err := strconv.Atoi(getNodeContent(tds[2]))
-		if err != nil {
-			return nil, err
-		}
-		downloadsYesterday, err := strconv.Atoi(getNodeContent(tds[3]))
-		if err != nil {
-			return nil, err
-		}
-		modStats = append(modStats, AuthorModStats{
-			RankTotal:          rankTotal,
-			DisplayName:        getNodeContent(tds[1]),
-			DownloadsTotal:     downloadsTotal,
-			DownloadsYesterday: downloadsYesterday,
-		})
-	}
-	return modStats, nil
 }
 
 func GetModList() ([]ListModInfo, error) {
