@@ -20,6 +20,7 @@ type AuthorModStats struct {
 
 type ListModInfo struct {
 	DisplayName        string
+	Rank               int
 	DownloadsTotal     int
 	DownloadsToday     int
 	DownloadsYesterday int
@@ -250,12 +251,18 @@ func GetModList() ([]ListModInfo, error) {
 		return nil, err
 	}
 	for i, v := range modList {
-		modList[i].DownloadsTotal = NameDownloadMap[v.DisplayName]
+		modList[i].DownloadsTotal = NameDownloadMap[v.DisplayName].DownloadsTotal
+		modList[i].Rank = NameDownloadMap[v.DisplayName].Rank
 	}
 	return modList, nil
 }
 
-func GetDownloadsTotalMap() (map[string]int, error) {
+type RankDownloadTotalInfo struct {
+	Rank           int
+	DownloadsTotal int
+}
+
+func GetDownloadsTotalMap() (map[string]RankDownloadTotalInfo, error) {
 	doc, err := GetModListTotalDonwloadsHtml()
 	if err != nil {
 		return nil, err
@@ -268,9 +275,13 @@ func GetDownloadsTotalMap() (map[string]int, error) {
 	if err != nil {
 		return nil, err
 	}
-	var NameDownloadMap map[string]int = make(map[string]int)
+	var NameDownloadMap map[string]RankDownloadTotalInfo = make(map[string]RankDownloadTotalInfo)
 	for _, v := range table[1:] {
 		tds, err := GetNodesByTag(v, "td")
+		if err != nil {
+			return nil, err
+		}
+		rank, err := strconv.Atoi(getNodeContent(tds[0]))
 		if err != nil {
 			return nil, err
 		}
@@ -278,7 +289,7 @@ func GetDownloadsTotalMap() (map[string]int, error) {
 		if err != nil {
 			return nil, err
 		}
-		NameDownloadMap[getNodeContent(tds[1])] = downloads
+		NameDownloadMap[getNodeContent(tds[1])] = RankDownloadTotalInfo{Rank: rank, DownloadsTotal: downloads}
 	}
 	return NameDownloadMap, nil
 }
