@@ -11,16 +11,17 @@ import (
 	"golang.org/x/net/html"
 )
 
-type ModStats struct {
+type AuthorModStats struct {
 	RankTotal          int
 	DisplayName        string
 	DownloadsTotal     int
 	DownloadsYesterday int
 }
 
-type AuthorModInfo struct {
+type ListModInfo struct {
 	DisplayName        string
 	DownloadsTotal     int
+	DownloadsToday     int
 	DownloadsYesterday int
 	TModLoaderVersion  string
 	ModName            string
@@ -53,6 +54,14 @@ func GetAuthorInfoHtml(steamId string) (*html.Node, error) {
 
 func GetModListHtml() (*html.Node, error) {
 	resp, err := http.Get("http://javid.ddns.net/tModLoader/modmigrationprogress.php")
+	if err != nil {
+		return nil, err
+	}
+	return html.Parse(resp.Body)
+}
+
+func GetModListTotalDonwloadsHtml() (*html.Node, error) {
+	resp, err := http.Get("http://javid.ddns.net/tModLoader/modmigrationprogressalltime.php")
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +169,7 @@ func getModInfo(modName string) (*ModInfo, error) {
 	return &result, nil
 }
 
-func GetAuthorStats(steamId string) ([]ModStats, error) {
+func GetAuthorStats(steamId string) ([]AuthorModStats, error) {
 	doc, err := GetAuthorInfoHtml(steamId)
 	if err != nil {
 		return nil, err
@@ -173,7 +182,7 @@ func GetAuthorStats(steamId string) ([]ModStats, error) {
 	if err != nil {
 		return nil, err
 	}
-	var modStats []ModStats = make([]ModStats, 0)
+	var modStats []AuthorModStats = make([]AuthorModStats, 0)
 	for _, v := range table[1:] {
 		tds, err := GetNodesByTag(v, "td")
 		if err != nil {
@@ -191,7 +200,7 @@ func GetAuthorStats(steamId string) ([]ModStats, error) {
 		if err != nil {
 			return nil, err
 		}
-		modStats = append(modStats, ModStats{
+		modStats = append(modStats, AuthorModStats{
 			RankTotal:          rankTotal,
 			DisplayName:        getNodeContent(tds[1]),
 			DownloadsTotal:     downloadsTotal,
@@ -201,7 +210,7 @@ func GetAuthorStats(steamId string) ([]ModStats, error) {
 	return modStats, nil
 }
 
-func GetModList() ([]AuthorModInfo, error) {
+func GetModList() ([]ListModInfo, error) {
 	doc, err := GetModListHtml()
 	if err != nil {
 		return nil, err
@@ -214,13 +223,13 @@ func GetModList() ([]AuthorModInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	var modList []AuthorModInfo = make([]AuthorModInfo, 0)
+	var modList []ListModInfo = make([]ListModInfo, 0)
 	for _, v := range table[1:] {
 		tds, err := GetNodesByTag(v, "td")
 		if err != nil {
 			return nil, err
 		}
-		downloadsTotal, err := strconv.Atoi(getNodeContent(tds[1]))
+		downloadsToday, err := strconv.Atoi(getNodeContent(tds[1]))
 		if err != nil {
 			return nil, err
 		}
@@ -228,13 +237,48 @@ func GetModList() ([]AuthorModInfo, error) {
 		if err != nil {
 			return nil, err
 		}
-		modList = append(modList, AuthorModInfo{
+		modList = append(modList, ListModInfo{
 			DisplayName:        getNodeContent(tds[0]),
-			DownloadsTotal:     downloadsTotal,
+			DownloadsToday:     downloadsToday,
 			DownloadsYesterday: downloadsYesterday,
 			TModLoaderVersion:  getNodeContent(tds[3]),
 			ModName:            getNodeContent(tds[4]),
 		})
 	}
+	NameDownloadMap, err := GetDownloadsTotalMap()
+	if err != nil {
+		return nil, err
+	}
+	for i, v := range modList {
+		modList[i].DownloadsTotal = NameDownloadMap[v.DisplayName]
+	}
 	return modList, nil
+}
+
+func GetDownloadsTotalMap() (map[string]int, error) {
+	doc, err := GetModListTotalDonwloadsHtml()
+	if err != nil {
+		return nil, err
+	}
+	tBody, err := GetNodesByTag(doc, "tbody")
+	if err != nil {
+		return nil, err
+	}
+	table, err := GetNodesByTag(tBody[0], "tr")
+	if err != nil {
+		return nil, err
+	}
+	var NameDownloadMap map[string]int = make(map[string]int)
+	for _, v := range table[1:] {
+		tds, err := GetNodesByTag(v, "td")
+		if err != nil {
+			return nil, err
+		}
+		downloads, err := strconv.Atoi(getNodeContent(tds[2]))
+		if err != nil {
+			return nil, err
+		}
+		NameDownloadMap[getNodeContent(tds[1])] = downloads
+	}
+	return NameDownloadMap, nil
 }
