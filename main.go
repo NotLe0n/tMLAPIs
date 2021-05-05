@@ -69,6 +69,22 @@ func modInfoHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(ModInfo)
 }
 
+func modVersionHistoryHandler(w http.ResponseWriter, r *http.Request) {
+	log.Println("Got a requeest on /modVersionHistory")
+	if r.Method != http.MethodGet {
+		http.Error(w, "Request must be GET", http.StatusBadRequest)
+		return
+	}
+	ModName := r.URL.Query().Get("modname")
+	ModHistory, err := getModHistory(ModName)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(ModHistory)
+}
+
 func main() {
 	serverHandler = http.NewServeMux()
 	server = http.Server{Addr: ":3000", Handler: serverHandler}
@@ -79,6 +95,7 @@ func main() {
 	serverHandler.HandleFunc("/author_api/", authorApiHandler)
 	serverHandler.HandleFunc("/modList", modListHandler)
 	serverHandler.HandleFunc("/modInfo", modInfoHandler)
+	serverHandler.HandleFunc("/modVersionHistory", modVersionHistoryHandler)
 
 	wg.Add(1)
 	go func() {

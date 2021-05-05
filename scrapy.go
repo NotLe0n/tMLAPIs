@@ -38,6 +38,13 @@ type ModInfo struct {
 	DownloadsYesterday int
 }
 
+type ModVersionInfo struct {
+	Version           string
+	Downloads         int
+	TModLoaderVersion string
+	PublishDate       string
+}
+
 func GetHtml(url string) (*html.Node, error) {
 	resp, err := http.Get(url)
 	if err != nil {
@@ -73,6 +80,39 @@ func getNodeContent(node *html.Node) string {
 		ret += getNodeContent(child)
 	}
 	return ret
+}
+
+func getModHistory(modName string) ([]ModVersionInfo, error) {
+	doc, err := GetHtml("http://javid.ddns.net/tModLoader/tools/moddownloadhistory.php?modname=" + modName)
+	if err != nil {
+		return nil, err
+	}
+	tBody, err := GetNodesByTag(doc, "tbody")
+	if err != nil {
+		return nil, err
+	}
+	table, err := GetNodesByTag(tBody[0], "tr")
+	if err != nil {
+		return nil, err
+	}
+	var ModHistory []ModVersionInfo = make([]ModVersionInfo, 0)
+	for _, v := range table[1:] {
+		tds, err := GetNodesByTag(v, "td")
+		if err != nil {
+			return nil, err
+		}
+		downloads, err := strconv.Atoi(getNodeContent(tds[1]))
+		if err != nil {
+			return nil, err
+		}
+		ModHistory = append(ModHistory, ModVersionInfo{
+			Version:           getNodeContent(tds[0]),
+			Downloads:         downloads,
+			TModLoaderVersion: getNodeContent(tds[2]),
+			PublishDate:       getNodeContent(tds[3]),
+		})
+	}
+	return ModHistory, nil
 }
 
 func getModInfo(modName string) (*ModInfo, error) {
