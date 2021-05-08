@@ -50,6 +50,7 @@ func GetHtml(url string) (*html.Node, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 	return html.Parse(resp.Body)
 }
 
@@ -137,6 +138,7 @@ func getModInfo(modName string) (*ModInfo, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 	err = json.NewDecoder(resp.Body).Decode(&javidModInfoResponse)
 	if err != nil {
 		return nil, errors.New("invalid modname")
@@ -159,14 +161,15 @@ func getModInfo(modName string) (*ModInfo, error) {
 		Description string
 	}
 
-	resp, err = http.PostForm("http://javid.ddns.net/tModLoader/moddescription.php", url.Values{
+	r, err := http.PostForm("http://javid.ddns.net/tModLoader/moddescription.php", url.Values{
 		"modname": {modName},
 	})
 	if err != nil {
 		return nil, err
 	}
+	defer r.Body.Close()
 	var descriptionResponse DescriptionResponse
-	err = json.NewDecoder(resp.Body).Decode(&descriptionResponse)
+	err = json.NewDecoder(r.Body).Decode(&descriptionResponse)
 	if err != nil {
 		return nil, err
 	}
@@ -174,11 +177,12 @@ func getModInfo(modName string) (*ModInfo, error) {
 	result.Homepage = descriptionResponse.Homepage
 	result.Description = descriptionResponse.Description
 
-	resp, err = http.Get("https://mirror.sgkoi.dev/direct/" + modName + ".png")
+	res, err := http.Get("https://mirror.sgkoi.dev/direct/" + modName + ".png")
 	if err != nil {
 		return nil, err
 	}
-	if resp.StatusCode == http.StatusNotFound {
+	defer res.Body.Close()
+	if res.StatusCode == http.StatusNotFound {
 		result.Icon = ""
 	} else {
 		result.Icon = "https://mirror.sgkoi.dev/direct/" + modName + ".png"
