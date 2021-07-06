@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+    "log"
 
 	"golang.org/x/net/html"
 )
@@ -179,10 +180,12 @@ func getModInfo(modName string) (*ModInfo, error) {
 
 	res, err := http.Get("https://mirror.sgkoi.dev/direct/" + modName + ".png")
 	if err != nil {
-		return nil, err
+        result.Icon = ""
+        log.Println("[ERROR] " + err.Error());
+		return &result, nil
 	}
 	defer res.Body.Close()
-	if res.StatusCode == http.StatusNotFound {
+	if res == nil || res.StatusCode == http.StatusNotFound {
 		result.Icon = ""
 	} else {
 		result.Icon = "https://mirror.sgkoi.dev/direct/" + modName + ".png"
