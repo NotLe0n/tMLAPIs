@@ -1,0 +1,43 @@
+extern crate reqwest;
+
+use rocket::serde::json;
+use rocket::serde::json::serde_json;
+use rocket::serde::json::serde_json::{json, Value};
+use crate::*;
+
+#[get("/count")]
+pub async fn count_1_4() -> Result<Value, APIError> {
+    let url = format!("https://api.steampowered.com/IPublishedFileService/QueryFiles/v1/?key={}&appid={}&totalonly=true", steamapi::get_steam_key(), APP_ID);
+	let json = get_json(url).await?;
+	let res: steamapi::Response<steamapi::CountResponse> = serde_json::from_value(json).unwrap();
+
+	return Ok(json!(res.response));
+}
+
+#[get("/author/<steamid>", rank=1)]
+pub async fn author_1_4(steamid: u64) -> Result<Value, APIError> {
+    let url = format!("https://api.steampowered.com/IPublishedFileService/GetUserFiles/v1/?key={}&appid={}&steamid={}&numperpage=100", steamapi::get_steam_key(), APP_ID, steamapi::validate_steamid64(steamid)?);
+	let json = get_json(url).await?;
+	let author: steamapi::Response<steamapi::AuthorResponse> = serde_json::from_value(json)?;
+
+	return Ok(json!(author.response));
+}
+
+#[get("/author/<steamname>", rank=2)]
+pub async fn author_1_4_str(steamname: String) -> Result<Value, APIError> {
+	let steamid = steamapi::steamname_to_steamid(steamname).await?;
+	let url = format!("https://api.steampowered.com/IPublishedFileService/GetUserFiles/v1/?key={}&appid={}&steamid={}&numperpage=100", steamapi::get_steam_key(), APP_ID, steamapi::validate_steamid64(steamid)?);
+	let json = get_json(url).await?;
+	let author: steamapi::Response<steamapi::AuthorResponse> = json::serde_json::from_value(json)?;
+
+	return Ok(json!(author.response));
+}
+
+#[get("/mod/<modid>")]
+pub async fn mod_1_4(modid: u64) -> Result<Value, APIError> {
+    let url = format!("https://api.steampowered.com/IPublishedFileService/GetDetails/v1/?key={}&publishedfileids%5B0%5D={}", steamapi::get_steam_key(), modid);
+	let json = get_json(url).await?;
+	let modinfo: steamapi::Response<steamapi::ModResponse> = serde_json::from_value(json)?;
+	
+	return Ok(json!(modinfo.response.publishedfiledetails[0]));
+}
