@@ -58,7 +58,7 @@ async fn index_1_4() -> RawHtml<&'static str> {
 // This is where the API starts
 #[launch]
 fn rocket() -> _ {
-	INSTANCE.set(std::env::var("STEAM_API_KEY").expect("'steamAPIKey' environment variable could not be read.")).expect("OnceCEll cannot be set");
+	INSTANCE.set(std::env::var("STEAM_API_KEY").expect("the 'STEAM_API_KEY' environment variable could not be read")).expect("OnceCEll couldn't be set");
 
     rocket::build()
 		.mount("/", routes![index])
