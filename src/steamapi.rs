@@ -1,8 +1,9 @@
 // import libraries
 extern crate reqwest;
-use rocket::serde::{json, json::Json, Deserialize, Serialize};
+use rocket::serde::{json, Deserialize, Serialize};
 use crate::APIError;
-use crate::get_json;
+
+pub const APP_ID: &str = "1281930";
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(crate = "rocket::serde")]
@@ -120,11 +121,11 @@ pub fn get_steam_key() -> String {
 
 pub async fn steamname_to_steamid(steamname: String) -> Result<u64, APIError> {
 	let steamid_url = format!("http://api.steampowered.com/ISteamUser/ResolveVanityURL/v0001/?key={}&vanityurl={}", get_steam_key(), steamname);
-	let steamid_json = get_json(steamid_url).await?;
+	let steamid_json = crate::get_json(steamid_url).await?;
 	let steamid_res: Response<IDResponse> = json::serde_json::from_value(steamid_json)?;
 	let steamid: u64 = match steamid_res.response.steamid {
 		Some(id) => Ok(id.parse().unwrap()),
-		None => Err(APIError::SteamIDNotFound(Json(format!("No steamid found for the specified steam name of: {}", steamname))))
+		None => Err(APIError::SteamIDNotFound(format!("No steamid found for the specified steam name of: {}", steamname)))
 	}?;
 
 	Ok(steamid)
@@ -134,6 +135,6 @@ pub async fn steamname_to_steamid(steamname: String) -> Result<u64, APIError> {
 pub fn validate_steamid64(steamid: u64) -> Result<u64, APIError> {
 	match steamid {
 		0x0110000100000001..=0x01100001FFFFFFFF => Ok(steamid),
-		_ => Err(APIError::InvalidSteamID(Json(format!("The steamid '{}' is invalid", steamid))))
+		_ => Err(APIError::InvalidSteamID(format!("The steamid '{}' is invalid", steamid)))
 	}
 }

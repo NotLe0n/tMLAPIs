@@ -1,27 +1,25 @@
-use rocket::serde::json::Json;
-
 #[derive(Responder, Debug)]
 pub enum APIError {
 	#[response(status = 500, content_type = "json")]
-	JSONError(Json<String>),
+	JSONError(String),
 	#[response(status = 500, content_type = "json")]
-	ReqwestError(Json<String>),
+	ReqwestError(String),
 	#[response(status = 400, content_type = "json")]
-	SteamIDNotFound(Json<String>),
+	SteamIDNotFound(String),
 	#[response(status = 400, content_type = "json")]
-	InvalidSteamID(Json<String>),
+	InvalidSteamID(String),
 	#[response(status = 400, content_type = "json")]
-	InvalidModName(Json<String>)
+	InvalidModName(String)
 }
 
 impl From<reqwest::Error> for APIError {
     fn from(e: reqwest::Error) -> Self {
-		APIError::ReqwestError(Json(format!("could not parse request: {}", e.to_string())))
+		APIError::ReqwestError(format!("could not parse request: {}", e.to_string()))
     }
 }
 
 impl From<rocket::serde::json::serde_json::Error> for APIError {
     fn from(e: rocket::serde::json::serde_json::Error) -> Self {
-		APIError::JSONError(Json(format!("could not parse json: {}", e.to_string())))
+		APIError::JSONError(format!("could not parse json: {}", e.to_string()))
     }
 }

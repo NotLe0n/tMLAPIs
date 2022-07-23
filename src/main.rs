@@ -12,14 +12,12 @@ use crate::api_error::APIError;
 // import libraries
 #[macro_use] extern crate rocket;
 extern crate reqwest;
-use rocket::serde::json::Value;
-use rocket::serde::json::serde_json;
+use rocket::serde::json::{Value, serde_json};
 use rocket::response::content::RawHtml;
 use once_cell::sync::OnceCell;
 
-// constants
+// Holds the SteamAPI Key
 static INSTANCE: OnceCell<String> = OnceCell::new();
-const APP_ID: &str = "1281930";
 
 // does a get reqwests on the specified URL and Returns a Json<String> if successfull or a Status if it errored 
 async fn get_json(url: String) -> Result<Value, APIError> {

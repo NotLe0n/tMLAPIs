@@ -1,8 +1,7 @@
 extern crate reqwest;
 
 use std::collections::HashMap;
-
-use rocket::serde::{json, json::serde_json::{json, Value}, Deserialize, Serialize};
+use rocket::serde::{json::serde_json::{self, json, Value}, Deserialize, Serialize};
 use scraper::{Html, Selector};
 use crate::{APIError, steamapi};
 
@@ -66,8 +65,8 @@ pub async fn mod_1_3(modname: String) -> Result<Value, APIError> {
 	// get mod info
 	let modinfo_json = crate::get_json(format!("http://javid.ddns.net/tModLoader/tools/modinfo.php?modname={}", modname)).await?;
 
-	let mut modinfo: ModInfo = json::serde_json::from_value(modinfo_json).map_err(|_| {
-		APIError::InvalidModName(json::Json(format!("The mod '{}' does not exist", modname)))
+	let mut modinfo: ModInfo = serde_json::from_value(modinfo_json).map_err(|_| {
+		APIError::InvalidModName(format!("The mod '{}' does not exist", modname))
 	})?;
 
 	// get description response; save info in DescriptionResponse struct
@@ -78,10 +77,10 @@ pub async fn mod_1_3(modname: String) -> Result<Value, APIError> {
 		.await?;
 
 	let description_json = response.text().await.map_err(|_| {
-		APIError::ReqwestError(json::Json("Post request on 'http://javid.ddns.net/tModLoader/moddescription.php' failed".to_string()))
+		APIError::ReqwestError("Post request on 'http://javid.ddns.net/tModLoader/moddescription.php' failed".to_string())
 	})?;
 
-	let description_res: DescriptionResponse = json::serde_json::from_str(&description_json)?;
+	let description_res: DescriptionResponse = serde_json::from_str(&description_json)?;
 	modinfo.description = Some(description_res.description);
 	modinfo.homepage = Some(description_res.homepage);
 
