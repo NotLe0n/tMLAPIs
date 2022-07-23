@@ -15,6 +15,7 @@ extern crate reqwest;
 use rocket::serde::json::{Value, serde_json};
 use rocket::response::content::RawHtml;
 use once_cell::sync::OnceCell;
+use rocket::fs::FileServer;
 
 // Holds the SteamAPI Key
 static INSTANCE: OnceCell<String> = OnceCell::new();
@@ -31,7 +32,8 @@ async fn get_json(url: String) -> Result<Value, APIError> {
 async fn index() -> RawHtml<&'static str>{
 	RawHtml("
 		<a href=\"/1.3\">1.3</a><br>
-		<a href=\"/1.4\">1.4</a>
+		<a href=\"/1.4\">1.4</a><br>
+		<a href=\"/img\">img</a>
 	")
 }
 
@@ -55,6 +57,16 @@ async fn index_1_4() -> RawHtml<&'static str> {
 	")
 }
 
+#[get("/")]
+async fn index_img() -> RawHtml<&'static str>{
+	RawHtml("
+	<form>
+		<input type=\"number\" id=\"input\" name=\"quantity\" min=\"0\" max=\"5042\">
+		<input type=\"button\" value=\"Go\" onclick=\"window.location.href='./Item_' + document.getElementById('input').value + '.png'\" />
+ 	</form>
+	")
+}
+
 // This is where the API starts
 #[launch]
 fn rocket() -> _ {
@@ -64,4 +76,6 @@ fn rocket() -> _ {
 		.mount("/", routes![index])
 		.mount("/1.3/", routes![index_1_3, count_1_3, author_1_3, author_1_3_str, mod_1_3])
 		.mount("/1.4/", routes![index_1_4, count_1_4, author_1_4, author_1_4_str, mod_1_4])
+		.mount("/img/", FileServer::from("./img/"))
+		.mount("/img/", routes![index_img])
 }
