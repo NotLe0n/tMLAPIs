@@ -75,7 +75,7 @@ fn rocket() -> _ {
     rocket::build()
 		.mount("/", routes![index])
 		.mount("/1.3/", routes![index_1_3, count_1_3, author_1_3, author_1_3_str, mod_1_3])
-		.mount("/1.4/", routes![index_1_4, count_1_4, author_1_4, author_1_4_str, mod_1_4])
+		.mount("/1.4/", routes![index_1_4, count_1_4, author_1_4, author_1_4_str, mod_1_4, list_1_4])
 		.mount("/img/", FileServer::from("./img/"))
 		.mount("/img/", routes![index_img])
 }

@@ -40,6 +40,18 @@ pub struct ModResponse {
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(crate = "rocket::serde")]
+pub struct ModListResponse {
+	pub publishedfiledetails: Vec<PublishedFileID>
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(crate = "rocket::serde")]
+pub struct PublishedFileID {
+	pub publishedfileid: String
+} 
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(crate = "rocket::serde")]
 pub struct PublishedFileDetails {
 	pub app_name: String,
 	pub ban_reason: String,
@@ -70,7 +82,7 @@ pub struct PublishedFileDetails {
 	pub maybe_inappropriate_sex: bool,
 	pub maybe_inappropriate_violence: bool,
 	pub num_children: u32,
-	pub num_comments_developer: u32,
+	pub num_comments_developer: Option<u32>,
 	pub num_comments_public: u32,
 	pub num_reports: u32,
 	pub preview_file_size: String,
@@ -81,7 +93,7 @@ pub struct PublishedFileDetails {
 	pub revision_change_number: String,
 	pub show_subscribe_all: bool,
 	pub subscriptions: u32,
-	pub tags: Vec<ModTag>,
+	pub tags: Option<Vec<ModTag>>,
 	pub time_created: u64,
 	pub time_updated: u64,
 	pub title: String,
