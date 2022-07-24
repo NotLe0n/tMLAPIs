@@ -60,10 +60,10 @@ async fn index_1_4() -> RawHtml<&'static str> {
 #[get("/")]
 async fn index_img() -> RawHtml<&'static str>{
 	RawHtml("
-	<form>
-		<input type=\"number\" id=\"input\" name=\"quantity\" min=\"0\" max=\"5042\">
-		<input type=\"button\" value=\"Go\" onclick=\"window.location.href='./Item_' + document.getElementById('input').value + '.png'\" />
- 	</form>
+		<form>
+			<input type=\"number\" id=\"input\" name=\"quantity\" min=\"0\" max=\"5042\">
+			<input type=\"button\" value=\"Go\" onclick=\"window.location.href='/img/Item_' + document.getElementById('input').value + '.png'\" />
+		</form>
 	")
 }
 
