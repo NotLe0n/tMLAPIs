@@ -33,7 +33,7 @@ pub async fn author_1_4_str(steamname: String) -> Result<Value, APIError> {
 
 #[get("/mod/<modid>")]
 pub async fn mod_1_4(modid: u64) -> Result<Value, APIError> {
-    let url = format!("https://api.steampowered.com/IPublishedFileService/GetDetails/v1/?key={}&publishedfileids%5B0%5D={}", steamapi::get_steam_key(), modid);
+    let url = format!("https://api.steampowered.com/IPublishedFileService/GetDetails/v1/?key={}&publishedfileids%5B0%5D={}&includechildren=true", steamapi::get_steam_key(), modid);
 	let json = get_json(url).await?;
 	let modinfo: steamapi::Response<steamapi::ModResponse> = serde_json::from_value(json)?;
 	
@@ -57,7 +57,7 @@ pub async fn list_1_4() -> Result<Value, APIError> {
 			query.push_str(&format!("&publishedfileids%5B{}%5D={}", i, detail.publishedfileid));
 		}
 
-		let infolist_json = get_json(format!("https://api.steampowered.com/IPublishedFileService/GetDetails/v1/?key={}{}", steamapi::get_steam_key(), query)).await?;
+		let infolist_json = get_json(format!("https://api.steampowered.com/IPublishedFileService/GetDetails/v1/?key={}{}&includechildren=true", steamapi::get_steam_key(), query)).await?;
 		let mut modinfos: steamapi::Response<steamapi::ModResponse> = serde_json::from_value(infolist_json)?;
 		mods.append(&mut modinfos.response.publishedfiledetails);
 

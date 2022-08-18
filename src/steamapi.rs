@@ -102,7 +102,16 @@ pub struct PublishedFileDetails {
 	pub visibility: u32,
 	pub vote_data: Option<VoteData>,
 	pub workshop_accepted: bool,
-	pub workshop_file: bool
+	pub workshop_file: bool,
+	pub children: Option<Vec<Child>>
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(crate = "rocket::serde")]
+pub struct Child {
+	pub publishedfileid: String,
+	pub sortorder: u32,
+	pub file_type: u32
 }
 
 #[derive(Serialize, Deserialize, Debug)]
