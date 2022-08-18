@@ -1,5 +1,7 @@
 # TMLAPIS
 
+# OUTDATED README! QUERIES AND RESPONSES HAVE CHANGED! NAVIGATE THE MENU IN ROOT ('http://127.0.0.1:8000/')
+
 TMLAPIS provides useful tModLoader json apis for making dynamic websites. This API was made by [@NotLe0n](https://github.com/NotLe0n) and [@bafto](https://github.com/bafto)
 
 ## Usage
