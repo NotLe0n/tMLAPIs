@@ -143,3 +143,65 @@ async fn get_author_info(steamid: u64) -> Result<Value, APIError> {
 		"mods": mods
 	}))
 }
+
+#[derive(Serialize)]
+#[serde(crate = "rocket::serde")]
+struct ModListInfo {
+	rank: u32,
+	internal_name: String,
+	display_name: String,
+	downloads_total: u32,
+	downloads_today: u32,
+	downloads_yesterday: u32,
+	mod_version: String,
+	tmodloader_version: String
+}
+
+#[get("/list")]
+pub async fn list_1_3() -> Result<Value, APIError> {
+	let mod_selector = &Selector::parse("table > tbody > tr:not(:first-child)").unwrap();
+	let td_selector = &Selector::parse("td").unwrap();
+
+	let mut mods: Vec<ModListInfo> = Vec::new();
+
+	// new scopes because funny errors
+	{
+		let html = get_html("http://javid.ddns.net/tModLoader/modmigrationprogressalltime.php").await?;
+		let mod_infos = html.select(mod_selector);
+
+		for info in mod_infos {
+			let mut td = info.select(td_selector);
+
+			mods.push(ModListInfo {
+				rank: td.next().unwrap().inner_html().parse().unwrap(),
+				display_name: td.next().unwrap().inner_html(),
+				downloads_total: td.next().unwrap().inner_html().parse().unwrap(),
+				downloads_yesterday: td.next().unwrap().inner_html().parse().unwrap(),
+				mod_version: td.next().unwrap().inner_html(),
+				tmodloader_version: td.next().unwrap().inner_html(),
+
+				internal_name: "<pending>".to_string(),
+				downloads_today: 0,
+			})
+		}
+	}
+
+	{
+		let html = get_html("http://javid.ddns.net/tModLoader/modmigrationprogress.php").await?;
+		let mod_infos = html.select(mod_selector);
+
+		for info in mod_infos {
+			let mut td = info.select(td_selector);
+
+			// get index by searching for the display name in the mods array
+			let mod_name = td.next().unwrap().inner_html();
+			let index = mods.iter().position(|x| x.display_name == mod_name).unwrap();
+
+			// set missing fields
+			mods[index].downloads_today = td.nth(0).unwrap().inner_html().parse().unwrap();
+			mods[index].internal_name = td.nth(1).unwrap().inner_html();
+		}
+	}
+
+	Ok(json!(mods))
+}
