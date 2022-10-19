@@ -20,7 +20,7 @@ use rocket::fs::FileServer;
 // Holds the SteamAPI Key
 static INSTANCE: OnceCell<String> = OnceCell::new();
 
-// does a get reqwests on the specified URL and Returns a Json<String> if successfull or a Status if it errored 
+// does a get reqwests on the specified URL and Returns a Json<String> if successful or a Status if it errored
 async fn get_json(url: String) -> Result<Value, APIError> {
 	let res = reqwest::get(url).await?;
     let body = res.text().await?;
