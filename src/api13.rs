@@ -253,3 +253,34 @@ pub async fn list_1_3() -> Result<Value, APIError> {
 
 	Ok(json!(mods))
 }
+
+#[derive(Serialize)]
+#[serde(crate = "rocket::serde")]
+struct ModHistory {
+	version: String,
+	downloads_total: u32,
+	tmodloader_version: String,
+	publish_date: String,
+}
+
+#[get("/history/<modname>")]
+pub async fn history_1_3(modname: String) -> Result<Value, APIError> {
+	let html = get_html(&format!("http://javid.ddns.net/tModLoader/tools/moddownloadhistory.php?modname={}", modname)).await?;
+	let versions_selector = &Selector::parse("table > tbody > tr:not(:first-child)").unwrap();
+	let versions = html.select(versions_selector);
+
+	let mut history: Vec<ModHistory> = Vec::new();
+	for version in versions {
+		let td_selector = &Selector::parse("td").unwrap();
+		let mut version_data = version.select(td_selector);
+
+		history.push(ModHistory{
+			version: version_data.next().unwrap().inner_html(),
+			downloads_total: version_data.next().unwrap().inner_html().parse().unwrap(),
+			tmodloader_version: version_data.next().unwrap().inner_html(),
+			publish_date: version_data.next().unwrap().inner_html()
+		});
+	}
+
+	Ok(json!(history))
+}
