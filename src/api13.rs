@@ -99,8 +99,16 @@ pub async fn mod_1_3(modname: String) -> Result<Value, APIError> {
 #[serde(crate = "rocket::serde")]
 struct AuthorModInfo {
 	rank: u32,
-	name: String,
-	downloads: u32,
+	display_name: String,
+	downloads_total: u32,
+	downloads_yesterday: u32
+}
+
+#[derive(Serialize)]
+#[serde(crate = "rocket::serde")]
+struct MaintainedModInfo {
+	internal_name: String,
+	downloads_total: u32,
 	downloads_yesterday: u32
 }
 
@@ -130,24 +138,57 @@ async fn get_author_info(steamid: u64) -> Result<Value, APIError> {
 	let mods_data = first_table.select(mod_selector);
 	let mut mods: Vec<AuthorModInfo> = Vec::new();
 
+	let mut total_downloads: u32 = 0;
+	let mut total_downloads_yesterday: u32 = 0;
+
 	for mod_item in mods_data {
 		let td_selector = &Selector::parse("td").unwrap();
 		let mut children = mod_item.select(td_selector);
 
 		// add mod info to mod list
 		// a lot of unwraps because I trust that there is no garbage
-		mods.push(AuthorModInfo {
-			rank: children.next().unwrap().inner_html().parse().unwrap(),
-			name: children.next().unwrap().inner_html(),
-			downloads: children.next().unwrap().inner_html().parse().unwrap(),
-			downloads_yesterday: children.next().unwrap().inner_html().parse().unwrap()
-		});
+		let rank = children.next().unwrap().inner_html().parse().unwrap();
+		let display_name = children.next().unwrap().inner_html();
+		let downloads_total = children.next().unwrap().inner_html().parse().unwrap();
+		let downloads_yesterday = children.next().unwrap().inner_html().parse().unwrap();
+
+		// increment totals
+		total_downloads += downloads_total;
+		total_downloads_yesterday += downloads_yesterday;
+
+		mods.push(AuthorModInfo { rank, display_name, downloads_total, downloads_yesterday });
 	}
+
+	let maintainer_table = tables.last().unwrap();
+	let maintained_mods_selector = Selector::parse("tr:not(:first-child)").unwrap();
+	let maintained_mods = maintainer_table.select(&maintained_mods_selector);
+
+	let maintained_mods_info = match maintained_mods.clone().count() != 0 {
+		true => {
+			let mut mod_infos: Vec<MaintainedModInfo> = Vec::new();
+
+			for maintained_mod in maintained_mods {
+				let td_selector = &Selector::parse("td").unwrap();
+				let mut children = maintained_mod.select(td_selector);
+
+				mod_infos.push(MaintainedModInfo {
+					internal_name: children.next().unwrap().inner_html(),
+					downloads_total: children.next().unwrap().inner_html().parse().unwrap(),
+					downloads_yesterday: children.next().unwrap().inner_html().parse().unwrap()
+				})
+			}
+			Some(mod_infos)
+		},
+		false => None
+	};
 
 	Ok(json!({
 		"steam_name": steam_name.clone(),
+		"downloads_total": total_downloads,
+		"downloads_yesterday": total_downloads_yesterday,
 		"total": mods.len(),
-		"mods": mods
+		"mods": mods,
+		"maintained_mods": maintained_mods_info
 	}))
 }
 

@@ -154,7 +154,7 @@ pub struct SteamUserInfo {
 	pub avatarmedium: String,
 	pub avatarfull: String,
 	pub avatarhash: String,
-	pub lastlogoff: u64,
+	pub lastlogoff: Option<u64>,
 	pub personastate: u32,
 	pub primaryclanid: String,
 	pub timecreated: u64,
