@@ -1,83 +1,18 @@
-# TMLAPIS
+# tMLAPIs
+tMLAPIs adds multiple apis to get data for tModLoader mods.\
+It has support for both tModLoader version 1.3 and 1.4.
 
-TMLAPIS provides useful tModLoader json apis for making dynamic websites. This API was made by [@NotLe0n](https://github.com/NotLe0n) and [@bafto](https://github.com/bafto)
+This Project is built in rust using the rocket, reqwest, scraper, and once_cell crates and uses the Steam API to get data for 1.4 mods.
+Data for 1.3 mods are scraped from http://javid.ddns.net/tModLoader.
 
-## Usage
-## Mod Info API
-Making a GET request on `https://tmlapis.repl.co/modInfo?modname=<internal mod name>` you recieve 
-- DisplayName
-- InternalName
-- Author
-- Homepage
-- Description
-- Icon
-- Version
-- TModLoaderVersion
-- LastUpdated
-- ModDependencies
-- ModSide
-- DownloadLink
-- DownloadsTotal
-- DownloadsYesterday
+## How to Run
+**Prerequisites**:
+* Install [cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html)
 
-Example nodejs code:
-```js
-const fetch = require('node-fetch');
+**Running**:
+1. Clone the repository
+2. Set the STEAM_API_KEY environment variable to your Steam API key. Go [here](https://steamcommunity.com/dev/apikey) to get one.
+3. Run with `cargo run`
 
-let url = "https://tmlapis.repl.co/modInfo?modname=BetterChests";
-
-let settings = { method: "Get" };
-
-fetch(url, settings)
-    .then(res => res.json())
-    .then((json) => {
-        console.log(json);
-    });
-```
-
-## Author API
-
-Making a GET request on `https://tmlapis.repl.co/author_api/<steam64id>` you recieve 
-- the steam name of the user
-- the Total Downloads Combined
-- Yesterdays Total Downloads Combined
-- a list of all mods the given user has made.
-
-Example nodejs code:
-```js
-const fetch = require('node-fetch');
-
-let url = "https://tmlapis.repl.co/author_api/76561198278789341";
-
-let settings = { method: "Get" };
-
-fetch(url, settings)
-    .then(res => res.json())
-    .then((json) => {
-        console.log(json);
-    });
-```
-
-## Mod List API
-
-Making a GET request on `https://tmlapis.repl.co/modList` you recieve a list of all mods that exist in tML.
-
-Example nodejs code:
-```js
-const fetch = require('node-fetch');
-
-let url = "https://tmlapis.repl.co/modList";
-
-let settings = { method: "Get" };
-
-fetch(url, settings)
-    .then(res => res.json())
-    .then((json) => {
-        console.log(json);
-    });
-```
-
-## Item Image API
-
-You can get the image of any Item with this url: `https://tmlapis.repl.co/img/Item_<item id>.png`.<br>
-Items which have a sprite sheet are cut down to a singular frame of the animation.
+## Documentation
+For api documentation, see the wiki page.
