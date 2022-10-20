@@ -38,15 +38,15 @@ enum ModSide {
 #[serde(crate = "rocket::serde")]
 #[allow(non_snake_case)]
 struct ModInfo {
-	displayname: String,
-	name: String,
+	#[serde(rename(serialize = "display_name"))] displayname: String,
+	#[serde(rename(serialize = "internal_name"))] name: String,
 	version: String,
 	author: String,
-	download: String,
-	downloads: u32,
-	hot: u32,
-	updateTimeStamp: String,
-	modloaderversion: String,
+	#[serde(rename(serialize = "download_link"))] download: String,
+	#[serde(rename(serialize = "downloads_total"))] downloads: u32,
+	#[serde(rename(serialize = "downloads_yesterday"))] hot: u32,
+	#[serde(rename(serialize = "last_updated"))] updateTimeStamp: String,
+	#[serde(rename(serialize = "tmodloader_version"))] modloaderversion: String,
 	modreferences: String,
 	modside: ModSide,
 	description: Option<String>,
