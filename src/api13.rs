@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use rocket::serde::{json::serde_json::{self, json, Value}, Deserialize, Serialize};
 use scraper::{Html, Selector};
 use crate::{APIError, steamapi};
+use crate::steamapi::steamid_to_steamname;
 
 async fn get_html(url: &str) -> Result<Html, reqwest::Error> {
 	let res = reqwest::get(url).await?;
@@ -115,6 +116,11 @@ pub async fn author_1_3_str(steamname: String) -> Result<Value, APIError> {
 }
 
 async fn get_author_info(steamid: u64) -> Result<Value, APIError> {
+	let steam_name;
+	{
+		steam_name = steamid_to_steamname(steamid).await?;
+	}
+
 	let html = get_html(&format!("http://javid.ddns.net/tModLoader/tools/ranksbysteamid.php?steamid64={}", steamid)).await?;
 	let table_selector = Selector::parse("table > tbody").unwrap();
 	let mut tables = html.select(&table_selector); // there are 4 tables
@@ -134,11 +140,12 @@ async fn get_author_info(steamid: u64) -> Result<Value, APIError> {
 			rank: children.next().unwrap().inner_html().parse().unwrap(),
 			name: children.next().unwrap().inner_html(),
 			downloads: children.next().unwrap().inner_html().parse().unwrap(),
-			downloads_yesterday: children.next().unwrap().inner_html().parse().unwrap() 
+			downloads_yesterday: children.next().unwrap().inner_html().parse().unwrap()
 		});
 	}
 
 	Ok(json!({
+		"steam_name": steam_name.clone(),
 		"total": mods.len(),
 		"mods": mods
 	}))

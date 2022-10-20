@@ -136,6 +136,32 @@ pub struct ModTag {
 	pub display_name: String
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(crate = "rocket::serde")]
+pub struct SteamUserInfoResponse {
+	pub players: Vec<SteamUserInfo>
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(crate = "rocket::serde")]
+pub struct SteamUserInfo {
+	pub steamid: String,
+	pub communityvisibilitystate: u32,
+	pub profilestate: u32,
+	pub personaname: String,
+	pub profileurl: String,
+	pub avatar: String,
+	pub avatarmedium: String,
+	pub avatarfull: String,
+	pub avatarhash: String,
+	pub lastlogoff: u64,
+	pub personastate: u32,
+	pub primaryclanid: String,
+	pub timecreated: u64,
+	pub personastateflags: u32,
+	pub loccountrycode: String
+}
+
 pub fn get_steam_key() -> String {
 	crate::INSTANCE.get().unwrap().to_string()
 }
@@ -150,6 +176,16 @@ pub async fn steamname_to_steamid(steamname: String) -> Result<u64, APIError> {
 	}?;
 
 	Ok(steamid)
+}
+
+pub async fn steamid_to_steamname(steamid: u64) -> Result<String, APIError> {
+	let steaminfo_url = format!("https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?key={}&steamids={}", get_steam_key(), steamid);
+	let steaminfo_json = crate::get_json(steaminfo_url).await?;
+	let steaminfo_res: Response<SteamUserInfoResponse> =  json::serde_json::from_value(steaminfo_json)?;
+	match steaminfo_res.response.players.get(0) {
+		Some(user) => Ok(user.personaname.clone()),
+		None => Err(APIError::SteamIDNotFound(format!("No steam name found for the specified steam id of: {}", steamid)))
+	}
 }
 
 // steamid64 is only valid in a specific number range
