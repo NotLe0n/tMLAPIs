@@ -129,6 +129,8 @@ async fn get_author_info(steamid: u64) -> Result<Value, APIError> {
 		steam_name = steamid_to_steamname(steamid).await?;
 	}
 
+	let td_selector = &Selector::parse("td").unwrap();
+
 	let html = get_html(&format!("http://javid.ddns.net/tModLoader/tools/ranksbysteamid.php?steamid64={}", steamid)).await?;
 	let table_selector = Selector::parse("table > tbody").unwrap();
 	let mut tables = html.select(&table_selector); // there are 4 tables
@@ -142,7 +144,6 @@ async fn get_author_info(steamid: u64) -> Result<Value, APIError> {
 	let mut total_downloads_yesterday: u32 = 0;
 
 	for mod_item in mods_data {
-		let td_selector = &Selector::parse("td").unwrap();
 		let mut children = mod_item.select(td_selector);
 
 		// add mod info to mod list
@@ -163,13 +164,12 @@ async fn get_author_info(steamid: u64) -> Result<Value, APIError> {
 	let maintained_mods_selector = Selector::parse("tr:not(:first-child)").unwrap();
 	let maintained_mods = maintainer_table.select(&maintained_mods_selector);
 
-	let mut mod_infos: Vec<MaintainedModInfo> = Vec::new();
+	let mut maintained_mods_infos: Vec<MaintainedModInfo> = Vec::new();
 
 	for maintained_mod in maintained_mods {
-		let td_selector = &Selector::parse("td").unwrap();
 		let mut children = maintained_mod.select(td_selector);
 
-		mod_infos.push(MaintainedModInfo {
+		maintained_mods_infos.push(MaintainedModInfo {
 			internal_name: children.next().unwrap().inner_html(),
 			downloads_total: children.next().unwrap().inner_html().parse().unwrap(),
 			downloads_yesterday: children.next().unwrap().inner_html().parse().unwrap()
@@ -177,12 +177,12 @@ async fn get_author_info(steamid: u64) -> Result<Value, APIError> {
 	}
 
 	Ok(json!({
-		"steam_name": steam_name.clone(),
+		"steam_name": steam_name,
 		"downloads_total": total_downloads,
 		"downloads_yesterday": total_downloads_yesterday,
 		"total": mods.len(),
 		"mods": mods,
-		"maintained_mods": mod_infos
+		"maintained_mods": maintained_mods_infos
 	}))
 }
 
@@ -263,9 +263,10 @@ pub async fn history_1_3(modname: String) -> Result<Value, APIError> {
 	let versions_selector = &Selector::parse("table > tbody > tr:not(:first-child)").unwrap();
 	let versions = html.select(versions_selector);
 
+	let td_selector = &Selector::parse("td").unwrap();
+
 	let mut history: Vec<ModHistory> = Vec::new();
 	for version in versions {
-		let td_selector = &Selector::parse("td").unwrap();
 		let mut version_data = version.select(td_selector);
 
 		history.push(ModHistory{
