@@ -163,24 +163,18 @@ async fn get_author_info(steamid: u64) -> Result<Value, APIError> {
 	let maintained_mods_selector = Selector::parse("tr:not(:first-child)").unwrap();
 	let maintained_mods = maintainer_table.select(&maintained_mods_selector);
 
-	let maintained_mods_info = match maintained_mods.clone().count() != 0 {
-		true => {
-			let mut mod_infos: Vec<MaintainedModInfo> = Vec::new();
+	let mut mod_infos: Vec<MaintainedModInfo> = Vec::new();
 
-			for maintained_mod in maintained_mods {
-				let td_selector = &Selector::parse("td").unwrap();
-				let mut children = maintained_mod.select(td_selector);
+	for maintained_mod in maintained_mods {
+		let td_selector = &Selector::parse("td").unwrap();
+		let mut children = maintained_mod.select(td_selector);
 
-				mod_infos.push(MaintainedModInfo {
-					internal_name: children.next().unwrap().inner_html(),
-					downloads_total: children.next().unwrap().inner_html().parse().unwrap(),
-					downloads_yesterday: children.next().unwrap().inner_html().parse().unwrap()
-				})
-			}
-			Some(mod_infos)
-		},
-		false => None
-	};
+		mod_infos.push(MaintainedModInfo {
+			internal_name: children.next().unwrap().inner_html(),
+			downloads_total: children.next().unwrap().inner_html().parse().unwrap(),
+			downloads_yesterday: children.next().unwrap().inner_html().parse().unwrap()
+		})
+	}
 
 	Ok(json!({
 		"steam_name": steam_name.clone(),
@@ -188,7 +182,7 @@ async fn get_author_info(steamid: u64) -> Result<Value, APIError> {
 		"downloads_yesterday": total_downloads_yesterday,
 		"total": mods.len(),
 		"mods": mods,
-		"maintained_mods": maintained_mods_info
+		"maintained_mods": mod_infos
 	}))
 }
 
