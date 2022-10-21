@@ -106,7 +106,7 @@ pub struct PublishedFileDetails {
 	pub children: Option<Vec<Child>>
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(crate = "rocket::serde")]
 pub struct Child {
 	pub publishedfileid: String,
@@ -114,7 +114,7 @@ pub struct Child {
 	pub file_type: u32
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(crate = "rocket::serde")]
 pub struct VoteData {
 	pub score: f64,
@@ -122,14 +122,14 @@ pub struct VoteData {
 	pub votes_down: u32
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(crate = "rocket::serde")]
 pub struct KVTag {
 	pub key: String,
 	pub value: String
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(crate = "rocket::serde")]
 pub struct ModTag {
 	pub tag: String,
