@@ -9,7 +9,9 @@ pub enum APIError {
 	#[response(status = 400, content_type = "json")]
 	InvalidSteamID(String),
 	#[response(status = 400, content_type = "json")]
-	InvalidModName(String)
+	InvalidModName(String),
+	#[response(status = 400, content_type = "json")]
+	InvalidModID(String)
 }
 
 impl From<reqwest::Error> for APIError {

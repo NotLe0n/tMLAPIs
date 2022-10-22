@@ -21,7 +21,7 @@ enum ModSide {
 	NoSync
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize)]
 #[serde(crate = "rocket::serde")]
 struct ModInfo {
 	display_name: String,
@@ -93,44 +93,46 @@ async fn get_author_info(steamid: u64) -> Result<Value, APIError> {
 }
 
 fn get_filtered_mod_info(publishedfiledetail: &steamapi::PublishedFileDetails) -> ModInfo {
+	let publishedfiledetail = publishedfiledetail.clone();
+
 	// tml specific data
-	let kvtags = publishedfiledetail.kvtags.as_ref().unwrap();
+	let kvtags = publishedfiledetail.kvtags.unwrap();
 	let kvtags_iter = kvtags.iter();
 
 	// get data from kvtags field
-	let internal_name = find_kvtag_value(kvtags_iter.clone(), "name").unwrap();
-	let author = find_kvtag_value(kvtags_iter.clone(), "Author").unwrap();
-	let modside = find_kvtag_value(kvtags_iter.clone(), "modside").unwrap();
-	let homepage = find_kvtag_value(kvtags_iter.clone(), "homepage").unwrap();
-	let tmodloader_version = find_kvtag_value(kvtags_iter.clone(), "modloaderversion").unwrap();
-	let version = find_kvtag_value(kvtags_iter.clone(), "version").unwrap();
-	let mod_references = find_kvtag_value(kvtags_iter.clone(), "modreferences").unwrap();
+	let internal_name = find_kvtag_value(&kvtags_iter, "name").unwrap_or_default();
+	let author = find_kvtag_value(&kvtags_iter, "Author").unwrap_or_default();
+	let modside = find_kvtag_value(&kvtags_iter, "modside").unwrap_or_default();
+	let homepage = find_kvtag_value(&kvtags_iter, "homepage").unwrap_or_default();
+	let tmodloader_version = find_kvtag_value(&kvtags_iter, "modloaderversion").unwrap_or_default();
+	let version = find_kvtag_value(&kvtags_iter, "version").unwrap_or_default();
+	let mod_references = find_kvtag_value(&kvtags_iter, "modreferences").unwrap_or_default();
 
 	// construct ModInfo struct
 	return ModInfo{
-		display_name: publishedfiledetail.title.clone(),
-		internal_name: internal_name.to_string(),
-		mod_id: publishedfiledetail.publishedfileid.clone(),
-		author: author.to_string(),
-		author_id: publishedfiledetail.creator.clone(),
-		modside: modside.to_string(),
-		homepage: homepage.to_string(),
-		tmodloader_version: tmodloader_version.to_string(),
-		version: version.to_string(),
-		mod_references: mod_references.to_string(),
+		display_name: publishedfiledetail.title,
+		internal_name,
+		mod_id: publishedfiledetail.publishedfileid,
+		author,
+		author_id: publishedfiledetail.creator,
+		modside,
+		homepage,
+		tmodloader_version,
+		version,
+		mod_references,
 		num_versions: publishedfiledetail.revision_change_number.parse().unwrap(),
-		tags: publishedfiledetail.tags.as_ref().cloned(),
+		tags: publishedfiledetail.tags,
 		time_created: publishedfiledetail.time_created,
 		time_updated: publishedfiledetail.time_updated,
-		workshop_icon_url: publishedfiledetail.preview_url.clone(),
-		children: publishedfiledetail.children.as_ref().cloned(),
+		workshop_icon_url: publishedfiledetail.preview_url,
+		children: publishedfiledetail.children,
 
 		downloads_total: publishedfiledetail.subscriptions,
 		favorited: publishedfiledetail.favorited,
 		views: publishedfiledetail.views,
-		playtime: publishedfiledetail.lifetime_playtime.clone(),
+		playtime: publishedfiledetail.lifetime_playtime,
 		followers: publishedfiledetail.followers,
-		vote_data: publishedfiledetail.vote_data.as_ref().cloned(),
+		vote_data: publishedfiledetail.vote_data,
 		num_comments: publishedfiledetail.num_comments_public,
 	}
 }
@@ -138,7 +140,8 @@ fn get_filtered_mod_info(publishedfiledetail: &steamapi::PublishedFileDetails) -
 #[get("/mod/<modid>")]
 pub async fn mod_1_4(modid: u64) -> Result<Value, APIError> {
     let url = format!("/IPublishedFileService/GetDetails/v1/?key={}&publishedfileids%5B0%5D={}&includekvtags=true&includechildren=true&includetags=true&includevotes=true", steamapi::get_steam_key(), modid);
-	let mod_info = get_steam_api_json::<steamapi::ModResponse>(url).await?;
+	let mod_info = get_steam_api_json::<steamapi::ModResponse>(url).await
+		.map_err(|_| APIError::InvalidModID(format!("Could not find a mod with the id {}", modid)))?;
 	let mod_data = mod_info.response.publishedfiledetails.get(0).unwrap();
 
 	return Ok(json!(
@@ -157,7 +160,7 @@ pub async fn list_1_4() -> Result<Value, APIError> {
 			break;
 		}
 
-		let mut query = "".to_owned();
+		let mut query = String::with_capacity(40);
 		for (i, detail) in mod_ids.unwrap().response.publishedfiledetails.iter().enumerate() {
 			query.push_str(&format!("&publishedfileids%5B{}%5D={}", i, detail.publishedfileid));
 		}
@@ -178,8 +181,8 @@ async fn get_steam_api_json<T: DeserializeOwned>(url: String) -> Result<steamapi
 	Ok(serde_json::from_value::<steamapi::Response<T>>(json)?)
 }
 
-fn find_kvtag_value(iter: std::slice::Iter<steamapi::KVTag>, key: &str) -> Option<String> {
-	for tag in iter {
+fn find_kvtag_value(iter: &std::slice::Iter<steamapi::KVTag>, key: &str) -> Option<String> {
+	for tag in iter.clone() {
 		if tag.key == key {
 			return Some(tag.value.clone());
 		}

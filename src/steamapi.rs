@@ -50,7 +50,7 @@ pub struct PublishedFileID {
 	pub publishedfileid: String
 } 
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(crate = "rocket::serde")]
 pub struct PublishedFileDetails {
 	pub app_name: String,

@@ -241,7 +241,7 @@ pub async fn list_1_3() -> Result<Value, APIError> {
 
 			// set missing fields
 			mods[index].downloads_today = td.nth(0).unwrap().inner_html().parse().unwrap();
-			mods[index].internal_name = td.nth(1).unwrap().inner_html();
+			mods[index].internal_name = td.nth(2).unwrap().inner_html();
 		}
 	}
 
