@@ -166,7 +166,7 @@ pub fn get_steam_key() -> String {
 	crate::INSTANCE.get().unwrap().to_string()
 }
 
-pub async fn steamname_to_steamid(steamname: String) -> Result<u64, APIError> {
+pub async fn steamname_to_steamid(steamname: &str) -> Result<u64, APIError> {
 	let steamid_url = format!("http://api.steampowered.com/ISteamUser/ResolveVanityURL/v0001/?key={}&vanityurl={}", get_steam_key(), steamname);
 	let steamid_json = crate::get_json(steamid_url).await?;
 	let steamid_res: Response<IDResponse> = json::serde_json::from_value(steamid_json)?;

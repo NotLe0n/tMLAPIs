@@ -62,7 +62,7 @@ struct DescriptionResponse {
 }
 
 #[get("/mod/<modname>")]
-pub async fn mod_1_3(modname: String) -> Result<Value, APIError> {
+pub async fn mod_1_3(modname: &str) -> Result<Value, APIError> {
 	// get mod info
 	let modinfo_json = crate::get_json(format!("http://javid.ddns.net/tModLoader/tools/modinfo.php?modname={}", modname)).await?;
 
@@ -118,7 +118,7 @@ pub async fn author_1_3(steamid: u64) -> Result<Value, APIError> {
 }
 
 #[get("/author/<steamname>", rank=2)]
-pub async fn author_1_3_str(steamname: String) -> Result<Value, APIError> {
+pub async fn author_1_3_str(steamname: &str) -> Result<Value, APIError> {
 	let steamid = steamapi::steamname_to_steamid(steamname).await?;
 	return get_author_info(steamid).await;
 }
@@ -258,7 +258,7 @@ struct ModHistory {
 }
 
 #[get("/history/<modname>")]
-pub async fn history_1_3(modname: String) -> Result<Value, APIError> {
+pub async fn history_1_3(modname: &str) -> Result<Value, APIError> {
 	let html = get_html(&format!("http://javid.ddns.net/tModLoader/tools/moddownloadhistory.php?modname={}", modname)).await?;
 	let versions_selector = &Selector::parse("table > tbody > tr:not(:first-child)").unwrap();
 	let versions = html.select(versions_selector);
