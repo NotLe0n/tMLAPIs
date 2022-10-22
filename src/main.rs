@@ -33,7 +33,8 @@ async fn index() -> RawHtml<&'static str>{
 	RawHtml("
 		<a href=\"/1.3\">1.3</a><br>
 		<a href=\"/1.4\">1.4</a><br>
-		<a href=\"/img\">img</a>
+		<a href=\"/img\">img</a><br>
+		<a href=\"/version\">version</a>
 	")
 }
 
@@ -68,13 +69,20 @@ async fn index_img() -> RawHtml<&'static str>{
 	")
 }
 
+#[get("/version")]
+async fn version() -> Value {
+	serde_json::json!({
+		"version": std::env!("CARGO_PKG_VERSION")
+	})
+}
+
 // This is where the API starts
 #[launch]
 fn rocket() -> _ {
 	INSTANCE.set(std::env::var("STEAM_API_KEY").expect("the 'STEAM_API_KEY' environment variable could not be read")).expect("OnceCEll couldn't be set");
 
     rocket::build()
-		.mount("/", routes![index])
+		.mount("/", routes![index, version])
 		.mount("/1.3/", routes![index_1_3, count_1_3, author_1_3, author_1_3_str, mod_1_3, list_1_3, history_1_3])
 		.mount("/1.4/", routes![index_1_4, count_1_4, author_1_4, author_1_4_str, mod_1_4, list_1_4])
 		.mount("/img/", FileServer::from("./img/"))
