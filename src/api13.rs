@@ -2,8 +2,9 @@ extern crate reqwest;
 
 use std::collections::HashMap;
 use rocket::serde::{json::serde_json::{self, json, Value}, Deserialize, Serialize};
+use rocket_cache_response::CacheResponse;
 use scraper::{Html, Selector};
-use crate::{APIError, steamapi};
+use crate::{APIError, cached_json, steamapi};
 use crate::steamapi::steamid_to_steamname;
 
 async fn get_html(url: &str) -> Result<Html, reqwest::Error> {
@@ -62,7 +63,7 @@ struct DescriptionResponse {
 }
 
 #[get("/mod/<modname>")]
-pub async fn mod_1_3(modname: &str) -> Result<Value, APIError> {
+pub async fn mod_1_3(modname: &str) -> Result<CacheResponse<Value>, APIError> {
 	// get mod info
 	let modinfo_json = crate::get_json(format!("http://javid.ddns.net/tModLoader/tools/modinfo.php?modname={}", modname)).await?;
 
@@ -92,7 +93,7 @@ pub async fn mod_1_3(modname: &str) -> Result<Value, APIError> {
 		Err(_) => None
 	};
 
-	Ok(json!(modinfo))
+	return cached_json!(modinfo, 3600, false);
 }
 
 #[derive(Serialize)]
@@ -113,17 +114,17 @@ struct MaintainedModInfo {
 }
 
 #[get("/author/<steamid>", rank=1)]
-pub async fn author_1_3(steamid: u64) -> Result<Value, APIError> {
+pub async fn author_1_3(steamid: u64) -> Result<CacheResponse<Value>, APIError> {
 	return get_author_info(steamapi::validate_steamid64(steamid)?).await;
 }
 
 #[get("/author/<steamname>", rank=2)]
-pub async fn author_1_3_str(steamname: &str) -> Result<Value, APIError> {
+pub async fn author_1_3_str(steamname: &str) -> Result<CacheResponse<Value>, APIError> {
 	let steamid = steamapi::steamname_to_steamid(steamname).await?;
 	return get_author_info(steamid).await;
 }
 
-async fn get_author_info(steamid: u64) -> Result<Value, APIError> {
+async fn get_author_info(steamid: u64) -> Result<CacheResponse<Value>, APIError> {
 	let steam_name;
 	{
 		steam_name = steamid_to_steamname(steamid).await?;
@@ -176,14 +177,14 @@ async fn get_author_info(steamid: u64) -> Result<Value, APIError> {
 		})
 	}
 
-	Ok(json!({
+	return cached_json!({
 		"steam_name": steam_name,
 		"downloads_total": total_downloads,
 		"downloads_yesterday": total_downloads_yesterday,
 		"total": mods.len(),
 		"mods": mods,
 		"maintained_mods": maintained_mods_infos
-	}))
+	}, 3600, false);
 }
 
 #[derive(Serialize)]
@@ -200,7 +201,7 @@ struct ModListInfo {
 }
 
 #[get("/list")]
-pub async fn list_1_3() -> Result<Value, APIError> {
+pub async fn list_1_3() -> Result<CacheResponse<Value>, APIError> {
 	let mod_selector = &Selector::parse("table > tbody > tr:not(:first-child)").unwrap();
 	let td_selector = &Selector::parse("td").unwrap();
 
@@ -245,7 +246,7 @@ pub async fn list_1_3() -> Result<Value, APIError> {
 		}
 	}
 
-	Ok(json!(mods))
+	return cached_json!(mods, 36000, false)
 }
 
 #[derive(Serialize)]
@@ -258,7 +259,7 @@ struct ModHistory {
 }
 
 #[get("/history/<modname>")]
-pub async fn history_1_3(modname: &str) -> Result<Value, APIError> {
+pub async fn history_1_3(modname: &str) -> Result<CacheResponse<Value>, APIError> {
 	let html = get_html(&format!("http://javid.ddns.net/tModLoader/tools/moddownloadhistory.php?modname={}", modname)).await?;
 	let versions_selector = &Selector::parse("table > tbody > tr:not(:first-child)").unwrap();
 	let versions = html.select(versions_selector);
@@ -277,5 +278,5 @@ pub async fn history_1_3(modname: &str) -> Result<Value, APIError> {
 		});
 	}
 
-	Ok(json!(history))
+	return cached_json!(history, 3600, false);
 }

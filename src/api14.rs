@@ -2,7 +2,8 @@ extern crate reqwest;
 
 use rocket::serde::{Deserialize, DeserializeOwned, Serialize};
 use rocket::serde::json::serde_json::{self, json, Value};
-use crate::{APIError, get_json, steamapi};
+use rocket_cache_response::CacheResponse;
+use crate::{APIError, cached_json, get_json, steamapi};
 
 #[get("/count")]
 pub async fn count_1_4() -> Result<Value, APIError> {
@@ -51,17 +52,17 @@ struct ModInfo {
 }
 
 #[get("/author/<steamid>", rank=1)]
-pub async fn author_1_4(steamid: u64) -> Result<Value, APIError> {
+pub async fn author_1_4(steamid: u64) -> Result<CacheResponse<Value>, APIError> {
     get_author_info(steamid).await
 }
 
 #[get("/author/<steamname>", rank=2)]
-pub async fn author_1_4_str(steamname: &str) -> Result<Value, APIError> {
+pub async fn author_1_4_str(steamname: &str) -> Result<CacheResponse<Value>, APIError> {
 	let steamid = steamapi::steamname_to_steamid(steamname).await?;
 	get_author_info(steamid).await
 }
 
-async fn get_author_info(steamid: u64) -> Result<Value, APIError> {
+async fn get_author_info(steamid: u64) -> Result<CacheResponse<Value>, APIError> {
 	let url = format!("/IPublishedFileService/GetUserFiles/v1/?key={}&appid={}&steamid={}&numperpage=100", steamapi::get_steam_key(), steamapi::APP_ID, steamapi::validate_steamid64(steamid)?);
 	let author_data = get_steam_api_json::<steamapi::AuthorResponse>(&url).await?;
 
@@ -83,13 +84,13 @@ async fn get_author_info(steamid: u64) -> Result<Value, APIError> {
 		);
 	}
 
-	return Ok(json!({
+	return cached_json!({
 		"mods": mods,
 		"total": author_data.response.total,
 		"total_downloads": total_downloads,
 		"total_favorites": total_favorites,
 		"total_views": total_views,
-	}));
+	}, 3600, false);
 }
 
 fn get_filtered_mod_info(publishedfiledetail: &steamapi::PublishedFileDetails) -> ModInfo {
@@ -138,19 +139,18 @@ fn get_filtered_mod_info(publishedfiledetail: &steamapi::PublishedFileDetails) -
 }
 
 #[get("/mod/<modid>")]
-pub async fn mod_1_4(modid: u64) -> Result<Value, APIError> {
+pub async fn mod_1_4(modid: u64) -> Result<CacheResponse<Value>, APIError> {
     let url = format!("/IPublishedFileService/GetDetails/v1/?key={}&publishedfileids%5B0%5D={}&includekvtags=true&includechildren=true&includetags=true&includevotes=true", steamapi::get_steam_key(), modid);
 	let mod_info = get_steam_api_json::<steamapi::ModResponse>(&url).await
 		.map_err(|_| APIError::InvalidModID(format!("Could not find a mod with the id {}", modid)))?;
 	let mod_data = mod_info.response.publishedfiledetails.get(0).unwrap();
 
-	return Ok(json!(
-		get_filtered_mod_info(mod_data)
-	));
+	let filtered_data = get_filtered_mod_info(mod_data);
+	return cached_json!(filtered_data, 3600, false);
 }
 
 #[get("/list")]
-pub async fn list_1_4() -> Result<Value, APIError> {
+pub async fn list_1_4() -> Result<CacheResponse<Value>, APIError> {
 	let mut mods: Vec<ModInfo> = Vec::new();
 	let mut page = 0;
 	loop {
@@ -173,7 +173,7 @@ pub async fn list_1_4() -> Result<Value, APIError> {
 		page += 1;
 	}
 	
-	return Ok(json!(mods));
+	return cached_json!(mods, 36000, false);
 }
 
 async fn get_steam_api_json<T: DeserializeOwned>(url: &str) -> Result<steamapi::Response<T>, APIError> {

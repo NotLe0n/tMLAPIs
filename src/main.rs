@@ -17,6 +17,17 @@ use rocket::response::content::RawHtml;
 use once_cell::sync::OnceCell;
 use rocket::fs::FileServer;
 
+#[macro_export]
+macro_rules! cached_json {
+    ($json:tt, $max_age:literal, $revalidate:literal) => {
+		Ok(CacheResponse::Public {
+			responder: serde_json::json!($json),
+			max_age: $max_age, // cached for seconds
+			must_revalidate: $revalidate,
+		})
+	};
+}
+
 // Holds the SteamAPI Key
 static INSTANCE: OnceCell<String> = OnceCell::new();
 
