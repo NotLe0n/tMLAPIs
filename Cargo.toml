@@ -2,7 +2,7 @@
 name = "tmlapis"
 version = "1.0.4"
 edition = "2021"
-authors = "NotLe0n"
+authors = ["NotLe0n"]
 description = "a series of tmodloader apis to help make dynamic websites"
 readme = "README.md"
 repository = "https://github.com/NotLe0n/tMLAPIs"
