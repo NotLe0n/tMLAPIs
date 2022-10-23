@@ -1,7 +1,13 @@
 [package]
 name = "tmlapis"
-version = "1.0.3"
+version = "1.0.4"
 edition = "2021"
+authors = "NotLe0n"
+description = "a series of tmodloader apis to help make dynamic websites"
+readme = "README.md"
+repository = "https://github.com/NotLe0n/tMLAPIs"
+license = "GPL-2.0-only"
+license-file = "LICENSE"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
