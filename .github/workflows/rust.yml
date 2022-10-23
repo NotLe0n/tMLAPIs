@@ -22,5 +22,6 @@ jobs:
       uses: thebongy/version-check@v1
       with:
         file: Cargo.toml
+      id: version_check_staging
     - run: exit 1
-      if: versionChanged == false
+      if: steps.version_check_staging.outputs.versionChanged == false
