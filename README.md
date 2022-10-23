@@ -1,4 +1,6 @@
 # tMLAPIs
+[![build and release](https://github.com/NotLe0n/tMLAPIs/actions/workflows/build-and-release.yml/badge.svg)](https://github.com/NotLe0n/tMLAPIs/actions/workflows/build-and-release.yml)
+
 tMLAPIs adds multiple apis to get data for tModLoader mods.\
 It has support for both tModLoader version 1.3 and 1.4.
 
