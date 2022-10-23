@@ -1,0 +1,40 @@
+name: build and release
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Build
+      run: cargo build --verbose
+    - name: Check version increment
+      uses: thebongy/version-check@v1
+      with:
+        file: Cargo.toml
+      id: version_check
+    - name: exit if version unchanged
+      run: exit 1
+      if: steps.version_check.outputs.versionChanged == false
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+      with:
+        tag_name: ${{ steps.version_check.outputs.releaseVersion }}
+        release_name: Release v.${{ steps.version_check.outputs.releaseVersion }}
+        body: |
+          test
+        draft: false
+        prerelease: false
