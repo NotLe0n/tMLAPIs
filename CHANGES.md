@@ -1,2 +1,1 @@
-- Added `CHANGES.md`
-- Removed unnecessary workflows
+- Added caching
