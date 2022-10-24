@@ -4,14 +4,14 @@
 tMLAPIs adds multiple apis to get data for tModLoader mods.\
 It has support for both tModLoader version 1.3 and 1.4.
 
-This Project is built in rust using the rocket, reqwest, scraper, and once_cell crates and uses the Steam API to get data for 1.4 mods.
-Data for 1.3 mods are scraped from http://javid.ddns.net/tModLoader.
+This Project is built in rust using the rocket, reqwest and scraper crates.
+Data for 1.3 mods are scraped from http://javid.ddns.net/tModLoader and data for 1.4 mods is reqwested from the Steam API.
 
 ## How to use
 You can host tMLAPIs yourself by compiling this repo yourself and running it on your own machine. How to build this repo is explained [in the next section](#how-to-build).
 Or you can use the API using these mirrors:
 * https://tmlapis.repl.co/
-* https://tmlapi.tomat.dev/
+* https://tmlapis.tomat.dev/
 
 ## How to build
 **Prerequisites**:
