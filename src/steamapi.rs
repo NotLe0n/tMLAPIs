@@ -168,7 +168,7 @@ pub fn get_steam_key() -> String {
 
 pub async fn steamname_to_steamid(steamname: &str) -> Result<u64, APIError> {
 	let steamid_url = format!("http://api.steampowered.com/ISteamUser/ResolveVanityURL/v0001/?key={}&vanityurl={}", get_steam_key(), steamname);
-	let steamid_json = crate::get_json(steamid_url).await?;
+	let steamid_json = crate::get_json(&steamid_url).await?;
 	let steamid_res: Response<IDResponse> = json::serde_json::from_value(steamid_json)?;
 	let steamid: u64 = match steamid_res.response.steamid {
 		Some(id) => Ok(id.parse().unwrap()),
@@ -180,7 +180,7 @@ pub async fn steamname_to_steamid(steamname: &str) -> Result<u64, APIError> {
 
 pub async fn steamid_to_steamname(steamid: u64) -> Result<String, APIError> {
 	let steaminfo_url = format!("https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?key={}&steamids={}", get_steam_key(), steamid);
-	let steaminfo_json = crate::get_json(steaminfo_url).await?;
+	let steaminfo_json = crate::get_json(&steaminfo_url).await?;
 	let steaminfo_res: Response<SteamUserInfoResponse> =  json::serde_json::from_value(steaminfo_json)?;
 	match steaminfo_res.response.players.get(0) {
 		Some(user) => Ok(user.personaname.clone()),

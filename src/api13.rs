@@ -65,7 +65,7 @@ struct DescriptionResponse {
 #[get("/mod/<modname>")]
 pub async fn mod_1_3(modname: &str) -> Result<CacheResponse<Value>, APIError> {
 	// get mod info
-	let modinfo_json = crate::get_json(format!("http://javid.ddns.net/tModLoader/tools/modinfo.php?modname={}", modname)).await?;
+	let modinfo_json = crate::get_json(&format!("http://javid.ddns.net/tModLoader/tools/modinfo.php?modname={}", modname)).await?;
 
 	let mut modinfo: ModInfo = serde_json::from_value(modinfo_json).map_err(|_| {
 		APIError::InvalidModName(format!("The mod '{}' does not exist", modname))
