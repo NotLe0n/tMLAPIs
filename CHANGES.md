@@ -1,0 +1,2 @@
+- Added `CHANGES.md`
+- Removed unnecessary workflows
