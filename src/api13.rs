@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use rocket::serde::{json::serde_json::{self, json, Value}, Deserialize, Serialize};
 use rocket_cache_response::CacheResponse;
 use scraper::{Html, Selector};
-use crate::{APIError, cached_json, steamapi};
-use crate::steamapi::steamid_to_steamname;
+use crate::{APIError, cached_json, steamapi, steamapi::steamid_to_steamname};
+use crate::cache::{CacheMap, CacheItem};
 
 async fn get_html(url: &str) -> Result<Html, reqwest::Error> {
 	let res = reqwest::get(url).await?;
@@ -26,7 +26,7 @@ pub async fn count_1_3() -> Result<Value, APIError> {
 	}))
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 #[serde(crate = "rocket::serde")]
 enum ModSide {
 	Both,
@@ -35,7 +35,7 @@ enum ModSide {
 	NoSync
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 #[serde(crate = "rocket::serde")]
 #[allow(non_snake_case)]
 struct ModInfo {
@@ -62,41 +62,65 @@ struct DescriptionResponse {
 	homepage: String
 }
 
-#[get("/mod/<modname>")]
-pub async fn mod_1_3(modname: &str) -> Result<CacheResponse<Value>, APIError> {
-	// get mod info
-	let modinfo_json = crate::get_json(&format!("http://javid.ddns.net/tModLoader/tools/modinfo.php?modname={}", modname)).await?;
-
-	let mut modinfo: ModInfo = serde_json::from_value(modinfo_json).map_err(|_| {
-		APIError::InvalidModName(format!("The mod '{}' does not exist", modname))
-	})?;
-
-	// get description response; save info in DescriptionResponse struct
-	let response = reqwest::Client::new()
-		.post("http://javid.ddns.net/tModLoader/moddescription.php")
-		.form(&HashMap::from([("modname", &modname)]))
-		.send()
-		.await?;
-
-	let description_json = response.text().await.map_err(|_| {
-		APIError::ReqwestError("Post request on 'http://javid.ddns.net/tModLoader/moddescription.php' failed".to_string())
-	})?;
-
-	let description_res: DescriptionResponse = serde_json::from_str(&description_json)?;
-	modinfo.description = Some(description_res.description);
-	modinfo.homepage = Some(description_res.homepage);
-
-	// get icon url if it exists
-	let res = reqwest::get(format!("https://mirror.sgkoi.dev/direct/{}.png", modname)).await;
-	modinfo.icon = match res {
-		Ok(_) => Some(format!("https://mirror.sgkoi.dev/direct/{}.png", modname)),
-		Err(_) => None
-	};
-
-	return cached_json!(modinfo, 3600, false);
+// global variable for mod cache
+lazy_static! {
+	static ref MOD_CACHE: std::sync::RwLock<CacheMap<String, ModInfo>> = std::sync::RwLock::new(CacheMap::new());
 }
 
-#[derive(Serialize)]
+#[get("/mod/<modname>")]
+pub async fn mod_1_3(modname: &str) -> Result<CacheResponse<Value>, APIError> {
+	let cache = {
+		let mod_cache = MOD_CACHE.read().unwrap();
+		mod_cache.get(modname.to_owned(), 3600).cloned()
+	};
+
+	let mod_info = match cache {
+		Some(cached_value) => cached_value.item,
+		None => {
+			// get mod info
+			let modinfo_json = crate::get_json(&format!("http://javid.ddns.net/tModLoader/tools/modinfo.php?modname={}", modname)).await?;
+
+			let mut modinfo: ModInfo = serde_json::from_value(modinfo_json).map_err(|_| {
+				APIError::InvalidModName(format!("The mod '{}' does not exist", modname))
+			})?;
+
+			// get description response; save info in DescriptionResponse struct
+			let response = reqwest::Client::new()
+				.post("http://javid.ddns.net/tModLoader/moddescription.php")
+				.form(&HashMap::from([("modname", &modname)]))
+				.send()
+				.await?;
+
+			let description_json = response.text().await.map_err(|_| {
+				APIError::ReqwestError("Post request on 'http://javid.ddns.net/tModLoader/moddescription.php' failed".to_string())
+			})?;
+
+			let description_res: DescriptionResponse = serde_json::from_str(&description_json)?;
+			modinfo.description = Some(description_res.description);
+			modinfo.homepage = Some(description_res.homepage);
+
+			// get icon url if it exists
+			let res = reqwest::get(format!("https://mirror.sgkoi.dev/direct/{}.png", modname)).await;
+			modinfo.icon = match res {
+				Ok(_) => Some(format!("https://mirror.sgkoi.dev/direct/{}.png", modname)),
+				Err(_) => None
+			};
+
+			// update cache value
+			let mut cache = MOD_CACHE.write().unwrap();
+			cache.insert(modname.to_owned(), CacheItem {
+				item: modinfo.clone(),
+				time_stamp: std::time::SystemTime::now()
+			});
+
+			modinfo
+		}
+	};
+
+	return cached_json!(mod_info, 3600, false);
+}
+
+#[derive(Serialize, Clone)]
 #[serde(crate = "rocket::serde")]
 struct AuthorModInfo {
 	rank: u32,
@@ -105,12 +129,23 @@ struct AuthorModInfo {
 	downloads_yesterday: u32
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 #[serde(crate = "rocket::serde")]
 struct MaintainedModInfo {
 	internal_name: String,
 	downloads_total: u32,
 	downloads_yesterday: u32
+}
+
+#[derive(Serialize, Clone)]
+#[serde(crate = "rocket::serde")]
+struct AuthorInfo {
+	steam_name: String,
+	downloads_total: u32,
+	downloads_yesterday: u32,
+	total: u32,
+	mods: Vec<AuthorModInfo>,
+	maintained_mods: Vec<MaintainedModInfo>
 }
 
 #[get("/author/<steamid>", rank=1)]
@@ -124,70 +159,96 @@ pub async fn author_1_3_str(steamname: &str) -> Result<CacheResponse<Value>, API
 	return get_author_info(steamid).await;
 }
 
-async fn get_author_info(steamid: u64) -> Result<CacheResponse<Value>, APIError> {
-	let steam_name;
-	{
-		steam_name = steamid_to_steamname(steamid).await?;
-	}
-
-	let td_selector = &Selector::parse("td").unwrap();
-
-	let html = get_html(&format!("http://javid.ddns.net/tModLoader/tools/ranksbysteamid.php?steamid64={}", steamid)).await?;
-	let table_selector = Selector::parse("table > tbody").unwrap();
-	let mut tables = html.select(&table_selector); // there are 4 tables
-
-	let first_table = tables.next().unwrap();
-	let mod_selector = &Selector::parse("tr:not(:first-child)").unwrap();
-	let mods_data = first_table.select(mod_selector);
-	let mut mods: Vec<AuthorModInfo> = Vec::new();
-
-	let mut total_downloads: u32 = 0;
-	let mut total_downloads_yesterday: u32 = 0;
-
-	for mod_item in mods_data {
-		let mut children = mod_item.select(td_selector);
-
-		// add mod info to mod list
-		// a lot of unwraps because I trust that there is no garbage
-		let rank = children.next().unwrap().inner_html().parse().unwrap();
-		let display_name = children.next().unwrap().inner_html();
-		let downloads_total = children.next().unwrap().inner_html().parse().unwrap();
-		let downloads_yesterday = children.next().unwrap().inner_html().parse().unwrap();
-
-		// increment totals
-		total_downloads += downloads_total;
-		total_downloads_yesterday += downloads_yesterday;
-
-		mods.push(AuthorModInfo { rank, display_name, downloads_total, downloads_yesterday });
-	}
-
-	let maintainer_table = tables.last().unwrap();
-	let maintained_mods_selector = Selector::parse("tr:not(:first-child)").unwrap();
-	let maintained_mods = maintainer_table.select(&maintained_mods_selector);
-
-	let mut maintained_mods_infos: Vec<MaintainedModInfo> = Vec::new();
-
-	for maintained_mod in maintained_mods {
-		let mut children = maintained_mod.select(td_selector);
-
-		maintained_mods_infos.push(MaintainedModInfo {
-			internal_name: children.next().unwrap().inner_html(),
-			downloads_total: children.next().unwrap().inner_html().parse().unwrap(),
-			downloads_yesterday: children.next().unwrap().inner_html().parse().unwrap()
-		})
-	}
-
-	return cached_json!({
-		"steam_name": steam_name,
-		"downloads_total": total_downloads,
-		"downloads_yesterday": total_downloads_yesterday,
-		"total": mods.len(),
-		"mods": mods,
-		"maintained_mods": maintained_mods_infos
-	}, 3600, false);
+// global author cache variable
+lazy_static! {
+	static ref AUTHOR_CACHE: std::sync::RwLock<CacheMap<u64, AuthorInfo>> = std::sync::RwLock::new(CacheMap::new());
 }
 
-#[derive(Serialize)]
+async fn get_author_info(steamid: u64) -> Result<CacheResponse<Value>, APIError> {
+	let cache = {
+		let mod_cache = AUTHOR_CACHE.read().unwrap();
+		mod_cache.get(steamid, 3600).cloned()
+	};
+
+	let author = match cache {
+		Some(cached_value) => cached_value.item,
+		None => {
+			let steam_name;
+			{
+				steam_name = steamid_to_steamname(steamid).await?;
+			}
+
+			let td_selector = &Selector::parse("td").unwrap();
+
+			let html = get_html(&format!("http://javid.ddns.net/tModLoader/tools/ranksbysteamid.php?steamid64={}", steamid)).await?;
+			let table_selector = Selector::parse("table > tbody").unwrap();
+			let mut tables = html.select(&table_selector); // there are 4 tables
+
+			let first_table = tables.next().unwrap();
+			let mod_selector = &Selector::parse("tr:not(:first-child)").unwrap();
+			let mods_data = first_table.select(mod_selector);
+			let mut mods: Vec<AuthorModInfo> = Vec::new();
+
+			let mut total_downloads: u32 = 0;
+			let mut total_downloads_yesterday: u32 = 0;
+
+			for mod_item in mods_data {
+				let mut children = mod_item.select(td_selector);
+
+				// add mod info to mod list
+				// a lot of unwraps because I trust that there is no garbage
+				let rank = children.next().unwrap().inner_html().parse().unwrap();
+				let display_name = children.next().unwrap().inner_html();
+				let downloads_total = children.next().unwrap().inner_html().parse().unwrap();
+				let downloads_yesterday = children.next().unwrap().inner_html().parse().unwrap();
+
+				// increment totals
+				total_downloads += downloads_total;
+				total_downloads_yesterday += downloads_yesterday;
+
+				mods.push(AuthorModInfo { rank, display_name, downloads_total, downloads_yesterday });
+			}
+
+			let maintainer_table = tables.last().unwrap();
+			let maintained_mods_selector = Selector::parse("tr:not(:first-child)").unwrap();
+			let maintained_mods = maintainer_table.select(&maintained_mods_selector);
+
+			let mut maintained_mods_infos: Vec<MaintainedModInfo> = Vec::new();
+
+			for maintained_mod in maintained_mods {
+				let mut children = maintained_mod.select(td_selector);
+
+				maintained_mods_infos.push(MaintainedModInfo {
+					internal_name: children.next().unwrap().inner_html(),
+					downloads_total: children.next().unwrap().inner_html().parse().unwrap(),
+					downloads_yesterday: children.next().unwrap().inner_html().parse().unwrap()
+				})
+			}
+
+			let author = AuthorInfo {
+				steam_name,
+				downloads_total: total_downloads,
+				downloads_yesterday: total_downloads_yesterday,
+				total: mods.len() as u32,
+				mods,
+				maintained_mods: maintained_mods_infos
+			};
+
+			// update cache value
+			let mut cache = AUTHOR_CACHE.write().unwrap();
+			cache.insert(steamid, CacheItem {
+				item: author.clone(),
+				time_stamp: std::time::SystemTime::now()
+			});
+
+			author
+		}
+	};
+
+	return cached_json!(author, 3600, false);
+}
+
+#[derive(Serialize, Clone)]
 #[serde(crate = "rocket::serde")]
 struct ModListInfo {
 	rank: u32,
@@ -200,53 +261,78 @@ struct ModListInfo {
 	tmodloader_version: String
 }
 
+// global variable for mod list cache
+lazy_static! {
+	static ref MODLIST_CACHE: std::sync::RwLock<CacheItem<Vec<ModListInfo>>> = std::sync::RwLock::new(CacheItem::new());
+}
+
 #[get("/list")]
 pub async fn list_1_3() -> Result<CacheResponse<Value>, APIError> {
-	let mod_selector = &Selector::parse("table > tbody > tr:not(:first-child)").unwrap();
-	let td_selector = &Selector::parse("td").unwrap();
-
-	let mut mods: Vec<ModListInfo> = Vec::new();
-
-	// new scopes because funny errors
-	{
-		let html = get_html("http://javid.ddns.net/tModLoader/modmigrationprogressalltime.php").await?;
-		let mod_infos = html.select(mod_selector);
-
-		for info in mod_infos {
-			let mut td = info.select(td_selector);
-
-			mods.push(ModListInfo {
-				rank: td.next().unwrap().inner_html().parse().unwrap(),
-				display_name: td.next().unwrap().inner_html(),
-				downloads_total: td.next().unwrap().inner_html().parse().unwrap(),
-				downloads_yesterday: td.next().unwrap().inner_html().parse().unwrap(),
-				mod_version: td.next().unwrap().inner_html(),
-				tmodloader_version: td.next().unwrap().inner_html(),
-
-				internal_name: "<pending>".to_string(),
-				downloads_today: 0,
-			})
+	let cache = {
+		let mod_cache = MODLIST_CACHE.read().unwrap();
+		match mod_cache.expired(3600) {
+			true => Some(mod_cache.item.clone()),
+			false => None
 		}
-	}
+	};
 
-	{
-		let html = get_html("http://javid.ddns.net/tModLoader/modmigrationprogress.php").await?;
-		let mod_infos = html.select(mod_selector);
+	let mods = match cache {
+		Some(cached_value) => cached_value,
+		None => {
+			let mod_selector = &Selector::parse("table > tbody > tr:not(:first-child)").unwrap();
+			let td_selector = &Selector::parse("td").unwrap();
 
-		for info in mod_infos {
-			let mut td = info.select(td_selector);
+			let mut mods: Vec<ModListInfo> = Vec::new();
 
-			// get index by searching for the display name in the mods array
-			let mod_name = td.next().unwrap().inner_html();
-			let index = mods.iter().position(|x| x.display_name == mod_name).unwrap();
+			// new scopes because funny errors
+			{
+				let html = get_html("http://javid.ddns.net/tModLoader/modmigrationprogressalltime.php").await?;
+				let mod_infos = html.select(mod_selector);
 
-			// set missing fields
-			mods[index].downloads_today = td.nth(0).unwrap().inner_html().parse().unwrap();
-			mods[index].internal_name = td.nth(2).unwrap().inner_html();
+				for info in mod_infos {
+					let mut td = info.select(td_selector);
+
+					mods.push(ModListInfo {
+						rank: td.next().unwrap().inner_html().parse().unwrap(),
+						display_name: td.next().unwrap().inner_html(),
+						downloads_total: td.next().unwrap().inner_html().parse().unwrap(),
+						downloads_yesterday: td.next().unwrap().inner_html().parse().unwrap(),
+						mod_version: td.next().unwrap().inner_html(),
+						tmodloader_version: td.next().unwrap().inner_html(),
+
+						internal_name: "<pending>".to_string(),
+						downloads_today: 0,
+					})
+				}
+			}
+
+			{
+				let html = get_html("http://javid.ddns.net/tModLoader/modmigrationprogress.php").await?;
+				let mod_infos = html.select(mod_selector);
+
+				for info in mod_infos {
+					let mut td = info.select(td_selector);
+
+					// get index by searching for the display name in the mods array
+					let mod_name = td.next().unwrap().inner_html();
+					let index = mods.iter().position(|x| x.display_name == mod_name).unwrap();
+
+					// set missing fields
+					mods[index].downloads_today = td.nth(0).unwrap().inner_html().parse().unwrap();
+					mods[index].internal_name = td.nth(2).unwrap().inner_html();
+				}
+			}
+
+			// update cache value
+			let mut cache = MODLIST_CACHE.write().unwrap();
+			cache.item = mods.clone();
+			cache.time_stamp = std::time::SystemTime::now();
+
+			mods
 		}
-	}
+	};
 
-	return cached_json!(mods, 36000, false)
+	return cached_json!(mods, 7200, false)
 }
 
 #[derive(Serialize)]
@@ -278,5 +364,5 @@ pub async fn history_1_3(modname: &str) -> Result<CacheResponse<Value>, APIError
 		});
 	}
 
-	return cached_json!(history, 3600, false);
+	return cached_json!(history, 7200, false);
 }
