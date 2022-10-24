@@ -162,8 +162,13 @@ pub struct SteamUserInfo {
 	pub loccountrycode: String
 }
 
+// Holds the SteamAPI Key
+lazy_static! {
+	static ref STEAM_KEY: String = std::env::var("STEAM_API_KEY").expect("the 'STEAM_API_KEY' environment variable could not be read");
+}
+
 pub fn get_steam_key() -> String {
-	crate::INSTANCE.get().unwrap().to_string()
+	STEAM_KEY.to_string()
 }
 
 pub async fn steamname_to_steamid(steamname: &str) -> Result<u64, APIError> {

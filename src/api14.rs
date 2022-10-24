@@ -4,6 +4,7 @@ use rocket::serde::{Deserialize, DeserializeOwned, Serialize};
 use rocket::serde::json::serde_json::{self, json, Value};
 use rocket_cache_response::CacheResponse;
 use crate::{APIError, cached_json, get_json, steamapi};
+use crate::cache::{CacheItem, CacheMap};
 
 #[get("/count")]
 pub async fn count_1_4() -> Result<Value, APIError> {
@@ -22,7 +23,7 @@ enum ModSide {
 	NoSync
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 #[serde(crate = "rocket::serde")]
 struct ModInfo {
 	display_name: String,
@@ -62,35 +63,72 @@ pub async fn author_1_4_str(steamname: &str) -> Result<CacheResponse<Value>, API
 	get_author_info(steamid).await
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(crate = "rocket::serde")]
+struct AuthorInfo {
+	mods: Vec<ModInfo>,
+	total: u32,
+	total_downloads: u64,
+	total_favorites: u64,
+	total_views: u64,
+}
+
+// global author cache variable
+lazy_static! {
+	static ref AUTHOR_CACHE: std::sync::RwLock<CacheMap<u64, AuthorInfo>> = std::sync::RwLock::new(CacheMap::new());
+}
+
 async fn get_author_info(steamid: u64) -> Result<CacheResponse<Value>, APIError> {
-	let url = format!("/IPublishedFileService/GetUserFiles/v1/?key={}&appid={}&steamid={}&numperpage=100", steamapi::get_steam_key(), steamapi::APP_ID, steamapi::validate_steamid64(steamid)?);
-	let author_data = get_steam_api_json::<steamapi::AuthorResponse>(&url).await?;
+	let cache = {
+		let mod_cache = AUTHOR_CACHE.read().unwrap();
+		mod_cache.get(steamid, 3600).cloned()
+	};
 
-	let mut mods: Vec<ModInfo> = Vec::new();
-	let mut total_downloads: u64 = 0;
-	let mut total_favorites: u64 = 0;
-	let mut total_views: u64 = 0;
+	let author = match cache {
+		Some(cached_value) => cached_value.item,
+		None => {
+			let url = format!("/IPublishedFileService/GetUserFiles/v1/?key={}&appid={}&steamid={}&numperpage=100", steamapi::get_steam_key(), steamapi::APP_ID, steamapi::validate_steamid64(steamid)?);
+			let author_data = get_steam_api_json::<steamapi::AuthorResponse>(&url).await
+				.map_err(|_| APIError::InvalidSteamID(format!("Could not find an author with the id {}", steamid)))?;
 
-	// go through each mod
-	for publishedfiledetail in author_data.response.publishedfiledetails {
-		// increment total counts
-		total_downloads += publishedfiledetail.subscriptions as u64;
-		total_favorites += publishedfiledetail.favorited as u64;
-		total_views += publishedfiledetail.views as u64;
+			let mut mods: Vec<ModInfo> = Vec::new();
+			let mut total_downloads: u64 = 0;
+			let mut total_favorites: u64 = 0;
+			let mut total_views: u64 = 0;
 
-		// filter mod data and add to Vec
-		mods.push(
-			get_filtered_mod_info(&publishedfiledetail)
-		);
-	}
+			// go through each mod
+			for publishedfiledetail in author_data.response.publishedfiledetails {
+				// increment total counts
+				total_downloads += publishedfiledetail.subscriptions as u64;
+				total_favorites += publishedfiledetail.favorited as u64;
+				total_views += publishedfiledetail.views as u64;
 
-	return cached_json!({
-		"mods": mods,
-		"total": author_data.response.total,
-		"total_downloads": total_downloads,
-		"total_favorites": total_favorites,
-		"total_views": total_views,
-	}, 3600, false);
+				// filter mod data and add to Vec
+				mods.push(
+					get_filtered_mod_info(&publishedfiledetail)
+				);
+			}
+
+			let author = AuthorInfo {
+				mods,
+				total: author_data.response.total,
+				total_downloads,
+				total_favorites,
+				total_views,
+			};
+
+			// update cache value
+			let mut cache = AUTHOR_CACHE.write().unwrap();
+			cache.insert(steamid, CacheItem {
+				item: author.clone(),
+				time_stamp: std::time::SystemTime::now(),
+			});
+
+			author
+		}
+	};
+
+	return cached_json!(author, 3600, false);
 }
 
 fn get_filtered_mod_info(publishedfiledetail: &steamapi::PublishedFileDetails) -> ModInfo {
@@ -138,47 +176,95 @@ fn get_filtered_mod_info(publishedfiledetail: &steamapi::PublishedFileDetails) -
 	}
 }
 
+// global variable for mod cache
+lazy_static! {
+	static ref MOD_CACHE: std::sync::RwLock<CacheMap<u64, steamapi::PublishedFileDetails>> = std::sync::RwLock::new(CacheMap::new());
+}
+
 #[get("/mod/<modid>")]
 pub async fn mod_1_4(modid: u64) -> Result<CacheResponse<Value>, APIError> {
-    let url = format!("/IPublishedFileService/GetDetails/v1/?key={}&publishedfileids%5B0%5D={}&includekvtags=true&includechildren=true&includetags=true&includevotes=true", steamapi::get_steam_key(), modid);
-	let mod_info = get_steam_api_json::<steamapi::ModResponse>(&url).await
-		.map_err(|_| APIError::InvalidModID(format!("Could not find a mod with the id {}", modid)))?;
-	let mod_data = mod_info.response.publishedfiledetails.get(0).unwrap();
+	let cache = {
+		let mod_cache = MOD_CACHE.read().unwrap();
+		mod_cache.get(modid, 3600).cloned()
+	};
 
-	let filtered_data = get_filtered_mod_info(mod_data);
+	let mod_data = match cache {
+		Some(cached_value) => cached_value.item,
+		None => {
+			let url = format!("/IPublishedFileService/GetDetails/v1/?key={}&publishedfileids%5B0%5D={}&includekvtags=true&includechildren=true&includetags=true&includevotes=true", steamapi::get_steam_key(), modid);
+			let mod_info = get_steam_api_json::<steamapi::ModResponse>(&url).await
+				.map_err(|_| APIError::InvalidModID(format!("Could not find a mod with the id {}", modid)))?;
+
+			let details = mod_info.response.publishedfiledetails[0].clone();
+
+			// update cache value
+			let mut cache = MOD_CACHE.write().unwrap();
+			cache.insert(modid, CacheItem {
+				item: details.clone(),
+				time_stamp: std::time::SystemTime::now(),
+			});
+
+			details
+		}
+	};
+
+	let filtered_data = get_filtered_mod_info(&mod_data);
 	return cached_json!(filtered_data, 3600, false);
+}
+
+// global variable for mod list cache
+lazy_static! {
+	static ref MODLIST_CACHE: std::sync::RwLock<CacheItem<Vec<ModInfo>>> = std::sync::RwLock::new(CacheItem::new());
 }
 
 #[get("/list")]
 pub async fn list_1_4() -> Result<CacheResponse<Value>, APIError> {
-	let mut mods: Vec<ModInfo> = Vec::new();
-	let mut query = String::with_capacity(200);
-	let mut page = 0;
-	loop {
-		// get list of 100 mod ids
-		let url = format!("/IPublishedFileService/QueryFiles/v1/?key={}&appid={}&page={}&numperpage=100", steamapi::get_steam_key(), steamapi::APP_ID, page);
-		let mod_ids = get_steam_api_json::<steamapi::ModListResponse>(&url).await;
-		if mod_ids.is_err() {
-			break; // if the response is empty, break the loop
+	let cache = {
+		let mod_cache = MODLIST_CACHE.read().unwrap();
+		match mod_cache.expired(3600) {
+			true => Some(mod_cache.item.clone()),
+			false => None
 		}
+	};
 
-		// go trough each mod id in the list and add &publishedfileids[{i}]={id} to the query string
-		for (i, detail) in mod_ids.unwrap().response.publishedfiledetails.iter().enumerate() {
-			query.push_str(&format!("&publishedfileids%5B{}%5D={}", i, detail.publishedfileid));
+	return match cache {
+		Some(cached_value) => cached_json!(cached_value, 7200, false),
+		None => {
+			let mut mods: Vec<ModInfo> = Vec::new();
+			let mut query = String::with_capacity(200);
+			let mut page = 0;
+			loop {
+				// get list of 100 mod ids
+				let url = format!("/IPublishedFileService/QueryFiles/v1/?key={}&appid={}&page={}&numperpage=100", steamapi::get_steam_key(), steamapi::APP_ID, page);
+				let mod_ids = get_steam_api_json::<steamapi::ModListResponse>(&url).await;
+				if mod_ids.is_err() {
+					break; // if the response is empty, break the loop
+				}
+
+				// go trough each mod id in the list and add &publishedfileids[{i}]={id} to the query string
+				for (i, detail) in mod_ids.unwrap().response.publishedfiledetails.iter().enumerate() {
+					query.push_str(&format!("&publishedfileids%5B{}%5D={}", i, detail.publishedfileid));
+				}
+
+				// on every second page (for performance)
+				if page % 2 == 0 {
+					// get mod info for 200 mods in one request
+					let mod_infos = get_steam_api_json::<steamapi::ModResponse>(&format!("/IPublishedFileService/GetDetails/v1/?key={}{}&includechildren=true&includekvtags=true&includechildren=true&includetags=true&includevotes=true", steamapi::get_steam_key(), query)).await?;
+					mods.append(&mut mod_infos.response.publishedfiledetails.iter().map(|x| get_filtered_mod_info(&x)).collect()); // filter mod info and add to list
+					query.clear(); // clear query
+				}
+
+				page += 1; // next page
+			}
+
+			// update cache value
+			let mut cache = MODLIST_CACHE.write().unwrap();
+			cache.item = mods.clone();
+			cache.time_stamp = std::time::SystemTime::now();
+
+			cached_json!(mods, 7200, false)
 		}
-
-		// on every second page (for performance)
-		if page % 2 == 0 {
-			// get mod info for 200 mods in one request
-			let mod_infos = get_steam_api_json::<steamapi::ModResponse>(&format!("/IPublishedFileService/GetDetails/v1/?key={}{}&includechildren=true&includekvtags=true&includechildren=true&includetags=true&includevotes=true", steamapi::get_steam_key(), query)).await?;
-			mods.append(&mut mod_infos.response.publishedfiledetails.iter().map(|x| get_filtered_mod_info(&x)).collect()); // filter mod info and add to list
-			query.clear(); // clear query
-		}
-
-		page += 1; // next page
-	}
-
-	return cached_json!(mods, 36000, false);
+	};
 }
 
 async fn get_steam_api_json<T: DeserializeOwned>(url: &str) -> Result<steamapi::Response<T>, APIError> {
