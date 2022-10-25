@@ -1,1 +1,1 @@
-- Added caching
+- Added /1.4/mod/\<modname> endpoint

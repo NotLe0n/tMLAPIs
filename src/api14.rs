@@ -182,7 +182,7 @@ lazy_static! {
 	static ref MOD_CACHE: std::sync::RwLock<CacheMap<u64, steamapi::PublishedFileDetails>> = std::sync::RwLock::new(CacheMap::new());
 }
 
-#[get("/mod/<modid>")]
+#[get("/mod/<modid>", rank=2)]
 pub async fn mod_1_4(modid: u64) -> Result<CacheResponse<Value>, APIError> {
 	let mod_data = get_mod_data(modid).await?;
 
@@ -190,17 +190,20 @@ pub async fn mod_1_4(modid: u64) -> Result<CacheResponse<Value>, APIError> {
 	return cached_json!(filtered_data, 3600, false);
 }
 
-#[get("/mod/<modname>")]
+#[get("/mod/<modname>", rank=1)]
 pub async fn mod_1_4_str(modname: &str) -> Result<CacheResponse<Value>, APIError> {
-	let mod_id = modname_to_modid(modname);
+	let mod_id = modname_to_modid(modname).await?;
 	let mod_data = get_mod_data(mod_id).await?;
 
 	let filtered_data = get_filtered_mod_info(&mod_data);
 	return cached_json!(filtered_data, 3600, false);
 }
 
-fn modname_to_modid(modname: &str) -> u64 {
-	0
+async fn modname_to_modid(modname: &str) -> Result<u64, APIError> {
+	let url = format!("/IPublishedFileService/QueryFiles/v1/?key={}&appid=1281930&search_text={}", steamapi::get_steam_key(), modname);
+	let mod_id = get_steam_api_json::<steamapi::ModListResponse>(&url).await
+		.map_err(|_| APIError::InvalidModID(format!("Could not find mod with the provided name: {}", modname)))?;
+	Ok(mod_id.response.publishedfiledetails[0].publishedfileid.parse().unwrap())
 }
 
 async fn get_mod_data(modid: u64) -> Result<PublishedFileDetails, APIError> {
