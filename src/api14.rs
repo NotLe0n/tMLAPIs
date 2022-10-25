@@ -5,6 +5,7 @@ use rocket::serde::json::serde_json::{self, json, Value};
 use rocket_cache_response::CacheResponse;
 use crate::{APIError, cached_json, get_json, steamapi};
 use crate::cache::{CacheItem, CacheMap};
+use crate::steamapi::PublishedFileDetails;
 
 #[get("/count")]
 pub async fn count_1_4() -> Result<Value, APIError> {
@@ -183,13 +184,33 @@ lazy_static! {
 
 #[get("/mod/<modid>")]
 pub async fn mod_1_4(modid: u64) -> Result<CacheResponse<Value>, APIError> {
+	let mod_data = get_mod_data(modid).await?;
+
+	let filtered_data = get_filtered_mod_info(&mod_data);
+	return cached_json!(filtered_data, 3600, false);
+}
+
+#[get("/mod/<modname>")]
+pub async fn mod_1_4_str(modname: &str) -> Result<CacheResponse<Value>, APIError> {
+	let mod_id = modname_to_modid(modname);
+	let mod_data = get_mod_data(mod_id).await?;
+
+	let filtered_data = get_filtered_mod_info(&mod_data);
+	return cached_json!(filtered_data, 3600, false);
+}
+
+fn modname_to_modid(modname: &str) -> u64 {
+	0
+}
+
+async fn get_mod_data(modid: u64) -> Result<PublishedFileDetails, APIError> {
 	let cache = {
 		let mod_cache = MOD_CACHE.read().unwrap();
 		mod_cache.get(modid, 3600).cloned()
 	};
 
-	let mod_data = match cache {
-		Some(cached_value) => cached_value.item,
+	return match cache {
+		Some(cached_value) => Ok(cached_value.item),
 		None => {
 			let url = format!("/IPublishedFileService/GetDetails/v1/?key={}&publishedfileids%5B0%5D={}&includekvtags=true&includechildren=true&includetags=true&includevotes=true", steamapi::get_steam_key(), modid);
 			let mod_info = get_steam_api_json::<steamapi::ModResponse>(&url).await
@@ -204,12 +225,9 @@ pub async fn mod_1_4(modid: u64) -> Result<CacheResponse<Value>, APIError> {
 				time_stamp: std::time::SystemTime::now(),
 			});
 
-			details
+			Ok(details)
 		}
-	};
-
-	let filtered_data = get_filtered_mod_info(&mod_data);
-	return cached_json!(filtered_data, 3600, false);
+	}
 }
 
 // global variable for mod list cache
