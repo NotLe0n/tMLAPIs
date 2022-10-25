@@ -1,1 +1,1 @@
-- Added /1.4/mod/\<modname> endpoint
+- Added html form interfaces to /1.3/author, /1.3/mod, /1.3/history, /1.4/mod, and /1.4/author

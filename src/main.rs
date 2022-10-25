@@ -38,7 +38,7 @@ async fn get_json(url: &str) -> Result<Value, APIError> {
 }
 
 #[get("/")]
-async fn index() -> RawHtml<&'static str>{
+fn index() -> RawHtml<&'static str>{
 	RawHtml("
 		<a href=\"/1.3\">1.3</a><br>
 		<a href=\"/1.4\">1.4</a><br>
@@ -48,7 +48,7 @@ async fn index() -> RawHtml<&'static str>{
 }
 
 #[get("/")]
-async fn index_1_3() -> RawHtml<&'static str> {
+fn index_1_3() -> RawHtml<&'static str> {
 	RawHtml("
 		<a href=\"1.3/count\">count</a><br>
 		<a href=\"1.3/author\">author</a><br>
@@ -59,7 +59,7 @@ async fn index_1_3() -> RawHtml<&'static str> {
 }
 
 #[get("/")]
-async fn index_1_4() -> RawHtml<&'static str> {
+fn index_1_4() -> RawHtml<&'static str> {
 	RawHtml("
 		<a href=\"1.4/count\">count</a><br>
 		<a href=\"1.4/author\">author</a><br>
@@ -69,17 +69,42 @@ async fn index_1_4() -> RawHtml<&'static str> {
 }
 
 #[get("/")]
-async fn index_img() -> RawHtml<&'static str>{
+fn index_img() -> RawHtml<&'static str>{
 	RawHtml("
-		<form>
+		<form action=\"javascript: window.location.href='/img/Item_' + document.getElementById('input').value + '.png'\">
 			<input type=\"number\" id=\"input\" name=\"quantity\" min=\"0\" max=\"5042\">
-			<input type=\"button\" value=\"Go\" onclick=\"window.location.href='/img/Item_' + document.getElementById('input').value + '.png'\" />
+			<input type=\"submit\" value=\"Go\" />
+		</form>
+	")
+}
+
+#[get("/mod")]
+fn index_mod() -> RawHtml<&'static str> {
+	just_input()
+}
+
+
+#[get("/author")]
+fn index_author() -> RawHtml<&'static str> {
+	just_input()
+}
+
+#[get("/history")]
+fn index_history_1_3() -> RawHtml<&'static str> {
+	just_input()
+}
+
+fn just_input() -> RawHtml<&'static str> {
+	RawHtml("
+		<form action=\"javascript: window.location.href += '/' + document.getElementById('input').value\">
+			<input type=\"text\" id=\"input\">
+			<input type=\"submit\" value=\"Go\" />
 		</form>
 	")
 }
 
 #[get("/version")]
-async fn version() -> Value {
+fn version() -> Value {
 	serde_json::json!({
 		"version": std::env!("CARGO_PKG_VERSION")
 	})
@@ -90,8 +115,8 @@ async fn version() -> Value {
 fn rocket() -> _ {
     rocket::build()
 		.mount("/", routes![index, version])
-		.mount("/1.3/", routes![index_1_3, count_1_3, author_1_3, author_1_3_str, mod_1_3, list_1_3, history_1_3])
-		.mount("/1.4/", routes![index_1_4, count_1_4, author_1_4, author_1_4_str, mod_1_4, mod_1_4_str, list_1_4])
+		.mount("/1.3/", routes![index_1_3, count_1_3, index_author, author_1_3, author_1_3_str, index_mod, mod_1_3, list_1_3, index_history_1_3, history_1_3])
+		.mount("/1.4/", routes![index_1_4, count_1_4, index_author, author_1_4, author_1_4_str, index_mod, mod_1_4, mod_1_4_str, list_1_4])
 		.mount("/img/", FileServer::from("./img/"))
 		.mount("/img/", routes![index_img])
 }
