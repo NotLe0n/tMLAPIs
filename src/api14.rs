@@ -5,7 +5,6 @@ use rocket::serde::json::serde_json::{self, json, Value};
 use rocket_cache_response::CacheResponse;
 use crate::{APIError, cached_json, get_json, steamapi};
 use crate::cache::{CacheItem, CacheMap};
-use crate::steamapi::PublishedFileDetails;
 
 #[get("/count")]
 pub async fn count_1_4() -> Result<Value, APIError> {
@@ -67,6 +66,7 @@ pub async fn author_1_4_str(steamname: &str) -> Result<CacheResponse<Value>, API
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(crate = "rocket::serde")]
 struct AuthorInfo {
+	steam_name: String,
 	mods: Vec<ModInfo>,
 	total: u32,
 	total_downloads: u64,
@@ -109,8 +109,8 @@ async fn get_author_info(steamid: u64) -> Result<CacheResponse<Value>, APIError>
 					get_filtered_mod_info(&publishedfiledetail)
 				);
 			}
-
 			let author = AuthorInfo {
+				steam_name: steamapi::steamid_to_steamname(steamid).await?,
 				mods,
 				total: author_data.response.total,
 				total_downloads,
@@ -206,7 +206,7 @@ async fn modname_to_modid(modname: &str) -> Result<u64, APIError> {
 	Ok(mod_id.response.publishedfiledetails[0].publishedfileid.parse().unwrap())
 }
 
-async fn get_mod_data(modid: u64) -> Result<PublishedFileDetails, APIError> {
+async fn get_mod_data(modid: u64) -> Result<steamapi::PublishedFileDetails, APIError> {
 	let cache = {
 		let mod_cache = MOD_CACHE.read().unwrap();
 		mod_cache.get(modid, 3600).cloned()
