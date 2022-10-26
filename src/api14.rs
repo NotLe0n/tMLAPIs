@@ -89,7 +89,7 @@ async fn get_author_info(steamid: u64) -> Result<CacheResponse<Value>, APIError>
 		Some(cached_value) => cached_value.item,
 		None => {
 			let url = format!("/IPublishedFileService/GetUserFiles/v1/?key={}&appid={}&steamid={}&numperpage=100", steamapi::get_steam_key(), steamapi::APP_ID, steamapi::validate_steamid64(steamid)?);
-			let author_data = get_steam_api_json::<steamapi::AuthorResponse>(&url).await
+			let author_data = get_steam_api_json::<steamapi::ModListResponse>(&url).await
 				.map_err(|_| APIError::InvalidSteamID(format!("Could not find an author with the id {}", steamid)))?;
 
 			let mut mods: Vec<ModInfo> = Vec::new();
@@ -201,7 +201,7 @@ pub async fn mod_1_4_str(modname: &str) -> Result<CacheResponse<Value>, APIError
 
 async fn modname_to_modid(modname: &str) -> Result<u64, APIError> {
 	let url = format!("/IPublishedFileService/QueryFiles/v1/?key={}&appid=1281930&search_text={}", steamapi::get_steam_key(), modname);
-	let mod_id = get_steam_api_json::<steamapi::ModListResponse>(&url).await
+	let mod_id = get_steam_api_json::<steamapi::ModIDListResponse>(&url).await
 		.map_err(|_| APIError::InvalidModID(format!("Could not find mod with the provided name: {}", modname)))?;
 	Ok(mod_id.response.publishedfiledetails[0].publishedfileid.parse().unwrap())
 }
@@ -252,28 +252,20 @@ pub async fn list_1_4() -> Result<CacheResponse<Value>, APIError> {
 		Some(cached_value) => cached_json!(cached_value, 7200, false),
 		None => {
 			let mut mods: Vec<ModInfo> = Vec::new();
-			let mut query = String::with_capacity(200);
 			let mut page = 0;
 			loop {
 				// get list of 100 mod ids
-				let url = format!("/IPublishedFileService/QueryFiles/v1/?key={}&appid={}&page={}&numperpage=100", steamapi::get_steam_key(), steamapi::APP_ID, page);
+				let url = format!("/IPublishedFileService/QueryFiles/v1/?key={}&appid={}&page={}&numperpage=100&cache_max_age_seconds=3600&return_details=true&return_kv_tags=true&return_children=true&return_tags=true&return_vote_data=true", steamapi::get_steam_key(), steamapi::APP_ID, page);
 				let mod_ids = get_steam_api_json::<steamapi::ModListResponse>(&url).await;
 				if mod_ids.is_err() {
 					break; // if the response is empty, break the loop
 				}
 
-				// go trough each mod id in the list and add &publishedfileids[{i}]={id} to the query string
-				for (i, detail) in mod_ids.unwrap().response.publishedfiledetails.iter().enumerate() {
-					query.push_str(&format!("&publishedfileids%5B{}%5D={}", i, detail.publishedfileid));
-				}
-
-				// on every second page (for performance)
-				if page % 2 == 0 {
-					// get mod info for 200 mods in one request
-					let mod_infos = get_steam_api_json::<steamapi::ModResponse>(&format!("/IPublishedFileService/GetDetails/v1/?key={}{}&includechildren=true&includekvtags=true&includechildren=true&includetags=true&includevotes=true", steamapi::get_steam_key(), query)).await?;
-					mods.append(&mut mod_infos.response.publishedfiledetails.iter().map(|x| get_filtered_mod_info(&x)).collect()); // filter mod info and add to list
-					query.clear(); // clear query
-				}
+				// add filtered mod info to vec
+				mods.append(
+					&mut mod_ids.unwrap().response.publishedfiledetails.iter()
+						.map(|x| get_filtered_mod_info(&x)).collect()
+				);
 
 				page += 1; // next page
 			}

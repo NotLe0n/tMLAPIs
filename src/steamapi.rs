@@ -27,13 +27,6 @@ pub struct IDResponse {
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(crate = "rocket::serde")]
-pub struct AuthorResponse {
-	pub total: u32,
-	pub publishedfiledetails: Vec<PublishedFileDetails>
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(crate = "rocket::serde")]
 pub struct ModResponse {
 	pub publishedfiledetails: Vec<PublishedFileDetails>
 }
@@ -41,6 +34,13 @@ pub struct ModResponse {
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(crate = "rocket::serde")]
 pub struct ModListResponse {
+	pub total: u32,
+	pub publishedfiledetails: Vec<PublishedFileDetails>
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(crate = "rocket::serde")]
+pub struct ModIDListResponse {
 	pub publishedfiledetails: Vec<PublishedFileID>
 }
 
@@ -48,7 +48,7 @@ pub struct ModListResponse {
 #[serde(crate = "rocket::serde")]
 pub struct PublishedFileID {
 	pub publishedfileid: String
-} 
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(crate = "rocket::serde")]

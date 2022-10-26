@@ -1,1 +1,1 @@
-- added steam_name to /1.4/author
+- Improved /1.4/list speed by ~2s
