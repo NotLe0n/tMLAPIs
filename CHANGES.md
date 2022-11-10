@@ -1,1 +1,1 @@
-- Improved /1.4/list speed by ~2s
+- fixed /1.4/author crashing when the author doesn't have a country set
