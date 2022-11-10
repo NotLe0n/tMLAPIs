@@ -159,7 +159,7 @@ pub struct SteamUserInfo {
 	pub primaryclanid: String,
 	pub timecreated: u64,
 	pub personastateflags: u32,
-	pub loccountrycode: String
+	pub loccountrycode: Option<String>
 }
 
 // Holds the SteamAPI Key
