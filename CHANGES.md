@@ -1,1 +1,1 @@
-- fixed /1.4/author crashing when the author doesn't have a country set
+- /1.4/mod/\<mod name> uses internal name now
