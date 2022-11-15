@@ -200,7 +200,7 @@ pub async fn mod_1_4_str(modname: &str) -> Result<CacheResponse<Value>, APIError
 }
 
 async fn modname_to_modid(modname: &str) -> Result<u64, APIError> {
-	let url = format!("/IPublishedFileService/QueryFiles/v1/?key={}&appid=1281930&search_text={}", steamapi::get_steam_key(), modname);
+	let url = format!("/IPublishedFileService/QueryFiles/v1/?key={}&input_json=%7B%22appid%22:{},%20%22required_kv_tags%22:[%7B%22key%22:%22name%22,%22value%22:%22{}%22%7D]%7D", steamapi::get_steam_key(), steamapi::APP_ID, modname);
 	let mod_id = get_steam_api_json::<steamapi::ModIDListResponse>(&url).await
 		.map_err(|_| APIError::InvalidModID(format!("Could not find mod with the provided name: {}", modname)))?;
 	Ok(mod_id.response.publishedfiledetails[0].publishedfileid.parse().unwrap())
