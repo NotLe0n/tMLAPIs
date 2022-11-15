@@ -1,1 +1,1 @@
-- /1.4/mod/\<mod name> uses internal name now
+- added steam_id to /1.4/author/

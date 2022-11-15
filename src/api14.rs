@@ -66,6 +66,7 @@ pub async fn author_1_4_str(steamname: &str) -> Result<CacheResponse<Value>, API
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(crate = "rocket::serde")]
 struct AuthorInfo {
+	steam_id: u64,
 	steam_name: String,
 	mods: Vec<ModInfo>,
 	total: u32,
@@ -110,6 +111,7 @@ async fn get_author_info(steamid: u64) -> Result<CacheResponse<Value>, APIError>
 				);
 			}
 			let author = AuthorInfo {
+				steam_id: steamid,
 				steam_name: steamapi::steamid_to_steamname(steamid).await?,
 				mods,
 				total: author_data.response.total,
