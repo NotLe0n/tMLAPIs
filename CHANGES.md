@@ -1,1 +1,1 @@
-- added steam_id to /1.4/author/
+- fixed 1.4/mod/\<modname> taking priority over 1.4/mod/\<modid> and thus making it unusable

@@ -184,7 +184,7 @@ lazy_static! {
 	static ref MOD_CACHE: std::sync::RwLock<CacheMap<u64, steamapi::PublishedFileDetails>> = std::sync::RwLock::new(CacheMap::new());
 }
 
-#[get("/mod/<modid>", rank=2)]
+#[get("/mod/<modid>", rank=1)]
 pub async fn mod_1_4(modid: u64) -> Result<CacheResponse<Value>, APIError> {
 	let mod_data = get_mod_data(modid).await?;
 
@@ -192,7 +192,7 @@ pub async fn mod_1_4(modid: u64) -> Result<CacheResponse<Value>, APIError> {
 	return cached_json!(filtered_data, 3600, false);
 }
 
-#[get("/mod/<modname>", rank=1)]
+#[get("/mod/<modname>", rank=2)]
 pub async fn mod_1_4_str(modname: &str) -> Result<CacheResponse<Value>, APIError> {
 	let mod_id = modname_to_modid(modname).await?;
 	let mod_data = get_mod_data(mod_id).await?;
