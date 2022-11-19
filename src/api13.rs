@@ -140,6 +140,7 @@ struct MaintainedModInfo {
 #[derive(Serialize, Clone)]
 #[serde(crate = "rocket::serde")]
 struct AuthorInfo {
+	steam_id: u64,
 	steam_name: String,
 	downloads_total: u32,
 	downloads_yesterday: u32,
@@ -226,6 +227,7 @@ async fn get_author_info(steamid: u64) -> Result<CacheResponse<Value>, APIError>
 			}
 
 			let author = AuthorInfo {
+				steam_id: steamid,
 				steam_name,
 				downloads_total: total_downloads,
 				downloads_yesterday: total_downloads_yesterday,

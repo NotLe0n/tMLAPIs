@@ -1,1 +1,1 @@
-- fixed 1.4/mod/ version field
+- added steam_id field to /1.3/author/
