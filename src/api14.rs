@@ -147,8 +147,16 @@ fn get_filtered_mod_info(publishedfiledetail: &steamapi::PublishedFileDetails) -
 	let modside = find_kvtag_value(&kvtags_iter, "modside").unwrap_or_default();
 	let homepage = find_kvtag_value(&kvtags_iter, "homepage").unwrap_or_default();
 	let tmodloader_version = find_kvtag_value(&kvtags_iter, "modloaderversion").unwrap_or_default();
-	let version = find_kvtag_value(&kvtags_iter, "version").unwrap_or_default();
+	let version_old = find_kvtag_value(&kvtags_iter, "version").unwrap_or_default();
+	let version_summary = find_kvtag_value(&kvtags_iter, "versionsummary").unwrap_or_default();
 	let mod_references = find_kvtag_value(&kvtags_iter, "modreferences").unwrap_or_default();
+
+	// the kvTag 'version' is deprecated
+	let version = if version_summary == "" {
+		version_old
+	} else {
+		format!("v{}", version_summary.split(&[':', ';']).nth(1).unwrap_or_default()) // tmod_version1:mod_version1;tmod_version2:mod_version2; ...
+	};
 
 	// construct ModInfo struct
 	return ModInfo{
