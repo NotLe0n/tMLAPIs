@@ -1,1 +1,1 @@
-- added steam_id field to /1.3/author/
+- added description to 1.4/mod/

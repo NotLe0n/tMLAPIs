@@ -42,7 +42,7 @@ struct ModInfo {
 	time_updated: u64,
 	workshop_icon_url: String,
 	children: Option<Vec<steamapi::Child>>,
-
+	description: Option<String>,
 	downloads_total: u32,
 	favorited: u32,
 	followers: u32,
@@ -176,7 +176,7 @@ fn get_filtered_mod_info(publishedfiledetail: &steamapi::PublishedFileDetails) -
 		time_updated: publishedfiledetail.time_updated,
 		workshop_icon_url: publishedfiledetail.preview_url,
 		children: publishedfiledetail.children,
-
+		description: publishedfiledetail.file_description,
 		downloads_total: publishedfiledetail.subscriptions,
 		favorited: publishedfiledetail.favorited,
 		views: publishedfiledetail.views,
