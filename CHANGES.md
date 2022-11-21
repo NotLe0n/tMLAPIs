@@ -1,1 +1,1 @@
-- fixed 1.4/mod/\<modname> taking priority over 1.4/mod/\<modid> and thus making it unusable
+- added description to 1.4/mod/

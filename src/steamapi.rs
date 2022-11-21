@@ -67,6 +67,7 @@ pub struct PublishedFileDetails {
 	pub favorited: u32,
 	pub file_size: String,
 	pub file_type: u32,
+	pub file_description: Option<String>,
 	pub filename: String,
 	pub flags: u32,
 	pub followers: u32,
