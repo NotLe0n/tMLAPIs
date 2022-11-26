@@ -99,7 +99,7 @@ async fn get_author_info(steamid: u64) -> Result<CacheResponse<Value>, APIError>
 			let mut total_views: u64 = 0;
 
 			// go through each mod
-			for publishedfiledetail in author_data.response.publishedfiledetails {
+			for publishedfiledetail in author_data.response.publishedfiledetails.unwrap() {
 				// increment total counts
 				total_downloads += publishedfiledetail.subscriptions as u64;
 				total_favorites += publishedfiledetail.favorited as u64;
@@ -262,22 +262,25 @@ pub async fn list_1_4() -> Result<CacheResponse<Value>, APIError> {
 		Some(cached_value) => cached_json!(cached_value, 7200, false),
 		None => {
 			let mut mods: Vec<ModInfo> = Vec::new();
-			let mut page = 0;
+			let mut next_cursor = String::from("*");
 			loop {
 				// get list of 100 mod ids
-				let url = format!("/IPublishedFileService/QueryFiles/v1/?key={}&appid={}&page={}&numperpage=100&cache_max_age_seconds=3600&return_details=true&return_kv_tags=true&return_children=true&return_tags=true&return_vote_data=true", steamapi::get_steam_key(), steamapi::APP_ID, page);
-				let mod_ids = get_steam_api_json::<steamapi::ModListResponse>(&url).await;
-				if mod_ids.is_err() {
-					break; // if the response is empty, break the loop
+				let url = format!("/IPublishedFileService/QueryFiles/v1/?key={}&appid={}&cursor={}&numperpage=50&cache_max_age_seconds=3600&return_details=true&return_kv_tags=true&return_children=true&return_tags=true&return_vote_data=true", steamapi::get_steam_key(), steamapi::APP_ID, next_cursor);
+				let list_res = get_steam_api_json::<steamapi::ModListResponse>(&url).await
+					.expect("mod list request failed!");
+
+				if list_res.response.total == 0 {
+					break;
 				}
+
+				let ids = &list_res.response.publishedfiledetails.unwrap();
 
 				// add filtered mod info to vec
 				mods.append(
-					&mut mod_ids.unwrap().response.publishedfiledetails.iter()
-						.map(|x| get_filtered_mod_info(&x)).collect()
+					&mut ids.iter().map(|x| get_filtered_mod_info(&x)).collect()
 				);
 
-				page += 1; // next page
+				next_cursor = list_res.response.next_cursor.unwrap();
 			}
 
 			// update cache value

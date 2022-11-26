@@ -35,7 +35,8 @@ pub struct ModResponse {
 #[serde(crate = "rocket::serde")]
 pub struct ModListResponse {
 	pub total: u32,
-	pub publishedfiledetails: Vec<PublishedFileDetails>
+	pub next_cursor: Option<String>,
+	pub publishedfiledetails: Option<Vec<PublishedFileDetails>>
 }
 
 #[derive(Serialize, Deserialize, Debug)]
