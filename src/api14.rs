@@ -5,6 +5,7 @@ use rocket::serde::json::serde_json::{self, json, Value};
 use rocket_cache_response::CacheResponse;
 use crate::{APIError, cached_json, get_json, steamapi};
 use crate::cache::{CacheItem, CacheMap};
+use urlencoding;
 
 #[get("/count")]
 pub async fn count_1_4() -> Result<Value, APIError> {
@@ -265,19 +266,20 @@ pub async fn list_1_4() -> Result<CacheResponse<Value>, APIError> {
 			let mut next_cursor = String::from("*");
 			loop {
 				// get list of 100 mod ids
-				let url = format!("/IPublishedFileService/QueryFiles/v1/?key={}&appid={}&cursor={}&numperpage=50&cache_max_age_seconds=3600&return_details=true&return_kv_tags=true&return_children=true&return_tags=true&return_vote_data=true", steamapi::get_steam_key(), steamapi::APP_ID, next_cursor);
+				let url = format!("/IPublishedFileService/QueryFiles/v1/?key={}&appid={}&cursor={}&numperpage=10000&cache_max_age_seconds=0&return_details=true&return_kv_tags=true&return_children=true&return_tags=true&return_vote_data=true",
+								  steamapi::get_steam_key(), steamapi::APP_ID, urlencoding::encode(&next_cursor));
 				let list_res = get_steam_api_json::<steamapi::ModListResponse>(&url).await
 					.expect("mod list request failed!");
 
-				if list_res.response.total == 0 {
+				if list_res.response.total == 0 || list_res.response.publishedfiledetails.is_none() {
 					break;
 				}
 
-				let ids = &list_res.response.publishedfiledetails.unwrap();
+				let details = &list_res.response.publishedfiledetails.unwrap();
 
 				// add filtered mod info to vec
 				mods.append(
-					&mut ids.iter().map(|x| get_filtered_mod_info(&x)).collect()
+					&mut details.iter().map(|x| get_filtered_mod_info(&x)).collect()
 				);
 
 				next_cursor = list_res.response.next_cursor.unwrap();
