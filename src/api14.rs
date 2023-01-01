@@ -139,7 +139,7 @@ fn get_filtered_mod_info(publishedfiledetail: &steamapi::PublishedFileDetails) -
 	let publishedfiledetail = publishedfiledetail.clone();
 
 	// tml specific data
-	let kvtags = publishedfiledetail.kvtags.unwrap();
+	let kvtags = publishedfiledetail.kvtags.unwrap_or_default();
 	let kvtags_iter = kvtags.iter();
 
 	// get data from kvtags field

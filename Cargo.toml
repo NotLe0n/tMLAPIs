@@ -1,9 +1,9 @@
 [package]
 name = "tmlapis"
-version = "1.5.1"
+version = "1.5.2"
 edition = "2021"
 authors = ["NotLe0n"]
-description = "a series of tmodloader apis to help make dynamic websites"
+description = "a series of tmodloader apis to help make dynamic websites and tools"
 readme = "README.md"
 repository = "https://github.com/NotLe0n/tMLAPIs"
 license = "GPL-2.0-only"

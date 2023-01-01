@@ -1,1 +1,1 @@
-- fixed /1.4/list/
+- fixed /1.4/list/ error caused by a mod with no kv_tags (how)
