@@ -26,6 +26,13 @@ enum ModSide {
 
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(crate = "rocket::serde")]
+struct ModVersion {
+	mod_version: String,
+	tmodloader_version: String,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(crate = "rocket::serde")]
 struct ModInfo {
 	display_name: String,
 	internal_name: String,
@@ -34,8 +41,7 @@ struct ModInfo {
 	author_id: String,
 	modside: String,
 	homepage: String,
-	tmodloader_version: String,
-	version: String,
+	versions: Vec<ModVersion>,
 	mod_references: String,
 	num_versions: u32,
 	tags: Option<Vec<steamapi::ModTag>>,
@@ -147,16 +153,30 @@ fn get_filtered_mod_info(publishedfiledetail: &steamapi::PublishedFileDetails) -
 	let author = find_kvtag_value(&kvtags_iter, "Author").unwrap_or_default();
 	let modside = find_kvtag_value(&kvtags_iter, "modside").unwrap_or_default();
 	let homepage = find_kvtag_value(&kvtags_iter, "homepage").unwrap_or_default();
-	let tmodloader_version = find_kvtag_value(&kvtags_iter, "modloaderversion").unwrap_or_default();
-	let version_old = find_kvtag_value(&kvtags_iter, "version").unwrap_or_default();
+	let deprecated_version_mod = find_kvtag_value(&kvtags_iter, "version").unwrap_or_default();
+	let deprecated_version_tmodloader = find_kvtag_value(&kvtags_iter, "modloaderversion").unwrap_or_default();
 	let version_summary = find_kvtag_value(&kvtags_iter, "versionsummary").unwrap_or_default();
 	let mod_references = find_kvtag_value(&kvtags_iter, "modreferences").unwrap_or_default();
 
-	// the kvTag 'version' is deprecated
-	let version = if version_summary == "" {
-		version_old
+	// the kvTags 'version' and 'modloaderversion' are deprecated
+	let mut versions: Vec<ModVersion> = Vec::new();
+
+	if version_summary == "" {
+		versions.push(ModVersion {
+			mod_version: deprecated_version_mod,
+			tmodloader_version: deprecated_version_tmodloader,
+		});
 	} else {
-		format!("v{}", version_summary.split(&[':', ';']).nth(1).unwrap_or_default()) // tmod_version1:mod_version1;tmod_version2:mod_version2; ...
+		for pair in version_summary.split(&[';']) {
+			let mut pair_split = pair.split(&[':']);
+			let tmodloader_version = pair_split.next().unwrap().to_string();
+			let mod_version = pair_split.next().unwrap().to_string();
+
+			versions.push(ModVersion {
+				mod_version: mod_version,
+				tmodloader_version: tmodloader_version,
+			});
+		}
 	};
 
 	// construct ModInfo struct
@@ -168,8 +188,7 @@ fn get_filtered_mod_info(publishedfiledetail: &steamapi::PublishedFileDetails) -
 		author_id: publishedfiledetail.creator,
 		modside,
 		homepage,
-		tmodloader_version,
-		version,
+		versions,
 		mod_references,
 		num_versions: publishedfiledetail.revision_change_number.parse().unwrap(),
 		tags: publishedfiledetail.tags,
