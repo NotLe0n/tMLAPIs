@@ -17,3 +17,4 @@ scraper = "0.13.0"
 lazy_static = "1.4.0"
 rocket-cache-response = "0.6.2"
 urlencoding = "2.1.2"
+openssl = { version = "0.10.41", features = ["vendored"] }
