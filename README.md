@@ -9,9 +9,7 @@ Data for 1.3 mods are scraped from http://javid.ddns.net/tModLoader and data for
 
 ## How to use
 You can host tMLAPIs yourself by compiling this repo and running it on your own machine. How to build this repo is explained [in the next section](#how-to-build).
-Or you can use the API using these mirrors:
-* https://tmlapis.repl.co/
-* https://tmlapis.tomat.dev/
+Or you can use the API using the mirror: https://tmlapis.le0n.dev/
 
 ## How to build
 **Prerequisites**:
