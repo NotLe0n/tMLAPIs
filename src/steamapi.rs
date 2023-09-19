@@ -164,17 +164,8 @@ pub struct SteamUserInfo {
 	pub loccountrycode: Option<String>
 }
 
-// Holds the SteamAPI Key
-lazy_static! {
-	static ref STEAM_KEY: String = std::env::var("STEAM_API_KEY").expect("the 'STEAM_API_KEY' environment variable could not be read");
-}
-
-pub fn get_steam_key() -> String {
-	STEAM_KEY.to_string()
-}
-
-pub async fn steamname_to_steamid(steamname: &str) -> Result<u64, APIError> {
-	let steamid_url = format!("http://api.steampowered.com/ISteamUser/ResolveVanityURL/v0001/?key={}&vanityurl={}", get_steam_key(), steamname);
+pub async fn steamname_to_steamid(steamname: &str, api_key: &str) -> Result<u64, APIError> {
+	let steamid_url = format!("http://api.steampowered.com/ISteamUser/ResolveVanityURL/v0001/?key={}&vanityurl={}", api_key, steamname);
 	let steamid_json = crate::get_json(&steamid_url).await?;
 	let steamid_res: Response<IDResponse> = json::serde_json::from_value(steamid_json)?;
 	let steamid: u64 = match steamid_res.response.steamid {
@@ -185,8 +176,8 @@ pub async fn steamname_to_steamid(steamname: &str) -> Result<u64, APIError> {
 	Ok(steamid)
 }
 
-pub async fn steamid_to_steamname(steamid: u64) -> Result<String, APIError> {
-	let steaminfo_url = format!("https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?key={}&steamids={}", get_steam_key(), steamid);
+pub async fn steamid_to_steamname(steamid: u64, api_key: &str) -> Result<String, APIError> {
+	let steaminfo_url = format!("https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?key={}&steamids={}", api_key, steamid);
 	let steaminfo_json = crate::get_json(&steaminfo_url).await?;
 	let steaminfo_res: Response<SteamUserInfoResponse> =  json::serde_json::from_value(steaminfo_json)?;
 	match steaminfo_res.response.players.get(0) {

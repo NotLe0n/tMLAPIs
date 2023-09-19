@@ -1,6 +1,6 @@
 [package]
 name = "tmlapis"
-version = "1.6.1"
+version = "1.6.2"
 edition = "2021"
 authors = ["NotLe0n"]
 description = "a series of tmodloader apis to help make dynamic websites and tools"
@@ -11,10 +11,14 @@ license = "GPL-2.0-only"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rocket = { version = "0.5.0-rc.2", features = ["json"] }
+rocket = { version = "0.5.0-rc.2", features = ["json", "tls"] }
 reqwest = "0.11.11"
 scraper = "0.13.0"
-lazy_static = "1.4.0"
 rocket-cache-response = "0.6.2"
 urlencoding = "2.1.2"
-openssl = { version = "0.10.41", features = ["vendored"] }
+
+[profile.release]
+opt-level = 'z'     # Optimize for size
+lto = true          # Enable link-time optimization
+codegen-units = 1   # Reduce number of codegen units to increase optimizations
+strip = true        # Strip symbols from binary*

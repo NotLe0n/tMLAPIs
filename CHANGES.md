@@ -1,1 +1,4 @@
-- Added release file to GitHub actions
+- Changed folder structure
+- removed the need for lazy_static
+- optimized release build for file size
+- added https support
