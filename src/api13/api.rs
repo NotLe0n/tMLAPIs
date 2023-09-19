@@ -1,11 +1,15 @@
 extern crate reqwest;
 
 use std::collections::HashMap;
-use rocket::serde::{json::serde_json::{self, json, Value}, Deserialize, Serialize};
+use rocket::State;
+use rocket::serde::json::serde_json::{self, json, Value};
 use rocket_cache_response::CacheResponse;
 use scraper::{Html, Selector};
 use crate::{APIError, cached_json, steamapi, steamapi::steamid_to_steamname};
-use crate::cache::{CacheMap, CacheItem};
+use crate::cache::CacheItem;
+use crate::api13::responses::*;
+
+use super::Api13State;
 
 async fn get_html(url: &str) -> Result<Html, reqwest::Error> {
 	let res = reqwest::get(url).await?;
@@ -26,51 +30,10 @@ pub async fn count_1_3() -> Result<Value, APIError> {
 	}))
 }
 
-#[derive(Serialize, Deserialize, Clone)]
-#[serde(crate = "rocket::serde")]
-enum ModSide {
-	Both,
-	Client,
-	Server,
-	NoSync
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-#[serde(crate = "rocket::serde")]
-#[allow(non_snake_case)]
-struct ModInfo {
-	#[serde(rename(serialize = "display_name"))] displayname: String,
-	#[serde(rename(serialize = "internal_name"))] name: String,
-	version: String,
-	author: String,
-	#[serde(rename(serialize = "download_link"))] download: String,
-	#[serde(rename(serialize = "downloads_total"))] downloads: u32,
-	#[serde(rename(serialize = "downloads_yesterday"))] hot: u32,
-	#[serde(rename(serialize = "last_updated"))] updateTimeStamp: String,
-	#[serde(rename(serialize = "tmodloader_version"))] modloaderversion: String,
-	modreferences: String,
-	modside: ModSide,
-	description: Option<String>,
-	homepage: Option<String>,
-	icon: Option<String>
-}
-
-#[derive(Deserialize)]
-#[serde(crate = "rocket::serde")]
-struct DescriptionResponse {
-	description: String,
-	homepage: String
-}
-
-// global variable for mod cache
-lazy_static! {
-	static ref MOD_CACHE: std::sync::RwLock<CacheMap<String, ModInfo>> = std::sync::RwLock::new(CacheMap::new());
-}
-
 #[get("/mod/<modname>")]
-pub async fn mod_1_3(modname: &str) -> Result<CacheResponse<Value>, APIError> {
+pub async fn mod_1_3(modname: &str, state: &State<Api13State>) -> Result<CacheResponse<Value>, APIError> {
 	let cache = {
-		let mod_cache = MOD_CACHE.read().unwrap();
+		let mod_cache = state.mod_cache.lock().unwrap();
 		mod_cache.get(modname.to_owned(), 3600).cloned()
 	};
 
@@ -107,7 +70,7 @@ pub async fn mod_1_3(modname: &str) -> Result<CacheResponse<Value>, APIError> {
 			};
 
 			// update cache value
-			let mut cache = MOD_CACHE.write().unwrap();
+			let mut cache = state.mod_cache.lock().unwrap();
 			cache.insert(modname.to_owned(), CacheItem {
 				item: modinfo.clone(),
 				time_stamp: std::time::SystemTime::now()
@@ -120,54 +83,20 @@ pub async fn mod_1_3(modname: &str) -> Result<CacheResponse<Value>, APIError> {
 	return cached_json!(mod_info, 3600, false);
 }
 
-#[derive(Serialize, Clone)]
-#[serde(crate = "rocket::serde")]
-struct AuthorModInfo {
-	rank: u32,
-	display_name: String,
-	downloads_total: u32,
-	downloads_yesterday: u32
-}
-
-#[derive(Serialize, Clone)]
-#[serde(crate = "rocket::serde")]
-struct MaintainedModInfo {
-	internal_name: String,
-	downloads_total: u32,
-	downloads_yesterday: u32
-}
-
-#[derive(Serialize, Clone)]
-#[serde(crate = "rocket::serde")]
-struct AuthorInfo {
-	steam_id: u64,
-	steam_name: String,
-	downloads_total: u32,
-	downloads_yesterday: u32,
-	total: u32,
-	mods: Vec<AuthorModInfo>,
-	maintained_mods: Vec<MaintainedModInfo>
-}
-
 #[get("/author/<steamid>", rank=1)]
-pub async fn author_1_3(steamid: u64) -> Result<CacheResponse<Value>, APIError> {
-	return get_author_info(steamapi::validate_steamid64(steamid)?).await;
+pub async fn author_1_3(steamid: u64, state: &State<Api13State>) -> Result<CacheResponse<Value>, APIError> {
+	return get_author_info(steamapi::validate_steamid64(steamid)?, state).await;
 }
 
 #[get("/author/<steamname>", rank=2)]
-pub async fn author_1_3_str(steamname: &str) -> Result<CacheResponse<Value>, APIError> {
-	let steamid = steamapi::steamname_to_steamid(steamname).await?;
-	return get_author_info(steamid).await;
+pub async fn author_1_3_str(steamname: &str, state: &State<Api13State>) -> Result<CacheResponse<Value>, APIError> {
+	let steamid = steamapi::steamname_to_steamid(steamname, &state.steam_api_key).await?;
+	return get_author_info(steamid, state).await;
 }
 
-// global author cache variable
-lazy_static! {
-	static ref AUTHOR_CACHE: std::sync::RwLock<CacheMap<u64, AuthorInfo>> = std::sync::RwLock::new(CacheMap::new());
-}
-
-async fn get_author_info(steamid: u64) -> Result<CacheResponse<Value>, APIError> {
+async fn get_author_info(steamid: u64, state: &State<Api13State>) -> Result<CacheResponse<Value>, APIError> {
 	let cache = {
-		let mod_cache = AUTHOR_CACHE.read().unwrap();
+		let mod_cache = state.author_cache.lock().unwrap();
 		mod_cache.get(steamid, 3600).cloned()
 	};
 
@@ -176,7 +105,7 @@ async fn get_author_info(steamid: u64) -> Result<CacheResponse<Value>, APIError>
 		None => {
 			let steam_name;
 			{
-				steam_name = steamid_to_steamname(steamid).await?;
+				steam_name = steamid_to_steamname(steamid, &state.steam_api_key).await?;
 			}
 
 			let td_selector = &Selector::parse("td").unwrap();
@@ -237,7 +166,7 @@ async fn get_author_info(steamid: u64) -> Result<CacheResponse<Value>, APIError>
 			};
 
 			// update cache value
-			let mut cache = AUTHOR_CACHE.write().unwrap();
+			let mut cache = state.author_cache.lock().unwrap();
 			cache.insert(steamid, CacheItem {
 				item: author.clone(),
 				time_stamp: std::time::SystemTime::now()
@@ -250,28 +179,10 @@ async fn get_author_info(steamid: u64) -> Result<CacheResponse<Value>, APIError>
 	return cached_json!(author, 3600, false);
 }
 
-#[derive(Serialize, Clone)]
-#[serde(crate = "rocket::serde")]
-struct ModListInfo {
-	rank: u32,
-	internal_name: String,
-	display_name: String,
-	downloads_total: u32,
-	downloads_today: u32,
-	downloads_yesterday: u32,
-	mod_version: String,
-	tmodloader_version: String
-}
-
-// global variable for mod list cache
-lazy_static! {
-	static ref MODLIST_CACHE: std::sync::RwLock<CacheItem<Vec<ModListInfo>>> = std::sync::RwLock::new(CacheItem::new());
-}
-
 #[get("/list")]
-pub async fn list_1_3() -> Result<CacheResponse<Value>, APIError> {
+pub async fn list_1_3(state: &State<Api13State>) -> Result<CacheResponse<Value>, APIError> {
 	let cache = {
-		let mod_cache = MODLIST_CACHE.read().unwrap();
+		let mod_cache = state.mod_list_cache.lock().unwrap();
 		match mod_cache.expired(3600) {
 			true => Some(mod_cache.item.clone()),
 			false => None
@@ -326,7 +237,7 @@ pub async fn list_1_3() -> Result<CacheResponse<Value>, APIError> {
 			}
 
 			// update cache value
-			let mut cache = MODLIST_CACHE.write().unwrap();
+			let mut cache = state.mod_list_cache.lock().unwrap();
 			cache.item = mods.clone();
 			cache.time_stamp = std::time::SystemTime::now();
 
@@ -337,14 +248,6 @@ pub async fn list_1_3() -> Result<CacheResponse<Value>, APIError> {
 	return cached_json!(mods, 7200, false)
 }
 
-#[derive(Serialize)]
-#[serde(crate = "rocket::serde")]
-struct ModHistory {
-	version: String,
-	downloads_total: u32,
-	tmodloader_version: String,
-	publish_date: String,
-}
 
 #[get("/history/<modname>")]
 pub async fn history_1_3(modname: &str) -> Result<CacheResponse<Value>, APIError> {
