@@ -19,6 +19,15 @@ pub struct ModVersion {
 
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(crate = "rocket::serde")]
+pub struct ModSocials {
+	pub youtube: String,
+	pub twitter: String,
+	pub reddit: String,
+	pub facebook: String
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(crate = "rocket::serde")]
 pub struct ModInfo {
 	pub display_name: String,
 	pub internal_name: String,
@@ -43,6 +52,7 @@ pub struct ModInfo {
 	pub vote_data: Option<steamapi::VoteData>,
 	pub playtime: String,
 	pub num_comments: u32,
+	pub socials: Option<ModSocials>
 }
 
 #[derive(Serialize, Deserialize, Clone)]

@@ -90,14 +90,18 @@ fn get_filtered_mod_info(publishedfiledetail: &steamapi::PublishedFileDetails) -
 	let kvtags_iter = kvtags.iter();
 
 	// get data from kvtags field
-	let internal_name = find_kvtag_value(&kvtags_iter, "name").unwrap_or_default();
-	let author = find_kvtag_value(&kvtags_iter, "Author").unwrap_or_default();
-	let modside = find_kvtag_value(&kvtags_iter, "modside").unwrap_or_default();
-	let homepage = find_kvtag_value(&kvtags_iter, "homepage").unwrap_or_default();
-	let deprecated_version_mod = find_kvtag_value(&kvtags_iter, "version").unwrap_or_default();
-	let deprecated_version_tmodloader = find_kvtag_value(&kvtags_iter, "modloaderversion").unwrap_or_default();
-	let version_summary = find_kvtag_value(&kvtags_iter, "versionsummary").unwrap_or_default();
-	let mod_references = find_kvtag_value(&kvtags_iter, "modreferences").unwrap_or_default();
+	let internal_name = find_kvtag_value(&kvtags_iter, "name");
+	let author = find_kvtag_value(&kvtags_iter, "Author");
+	let modside = find_kvtag_value(&kvtags_iter, "modside");
+	let homepage = find_kvtag_value(&kvtags_iter, "homepage");
+	let deprecated_version_mod = find_kvtag_value(&kvtags_iter, "version");
+	let deprecated_version_tmodloader = find_kvtag_value(&kvtags_iter, "modloaderversion");
+	let version_summary = find_kvtag_value(&kvtags_iter, "versionsummary");
+	let mod_references = find_kvtag_value(&kvtags_iter, "modreferences");
+	let youtube = find_kvtag_value(&kvtags_iter, "youtube");
+	let twitter = find_kvtag_value(&kvtags_iter, "twitter");
+	let reddit = find_kvtag_value(&kvtags_iter, "reddit");
+	let facebook = find_kvtag_value(&kvtags_iter, "facebook");
 
 	// the kvTags 'version' and 'modloaderversion' are deprecated
 	let mut versions: Vec<ModVersion> = Vec::new();
@@ -119,6 +123,17 @@ fn get_filtered_mod_info(publishedfiledetail: &steamapi::PublishedFileDetails) -
 			});
 		}
 	};
+
+	let socials: Option<ModSocials> = 
+		if youtube != "" && twitter != "" && reddit != "" && facebook != "" {
+			Some(ModSocials { 
+				youtube,
+				twitter,
+				reddit,
+				facebook, 
+			})
+		} else { None };
+		
 
 	// construct ModInfo struct
 	return ModInfo{
@@ -145,6 +160,7 @@ fn get_filtered_mod_info(publishedfiledetail: &steamapi::PublishedFileDetails) -
 		followers: publishedfiledetail.followers,
 		vote_data: publishedfiledetail.vote_data,
 		num_comments: publishedfiledetail.num_comments_public,
+		socials,
 	}
 }
 
@@ -251,12 +267,12 @@ async fn get_steam_api_json<T: DeserializeOwned>(url: &str) -> Result<steamapi::
 	Ok(serde_json::from_value::<steamapi::Response<T>>(json)?)
 }
 
-fn find_kvtag_value(iter: &std::slice::Iter<steamapi::KVTag>, key: &str) -> Option<String> {
+fn find_kvtag_value(iter: &std::slice::Iter<steamapi::KVTag>, key: &str) -> String {
 	for tag in iter.clone() {
 		if tag.key == key {
-			return Some(tag.value.clone());
+			return tag.value.clone();
 		}
 	};
 
-	return None;
+	return String::default();
 }

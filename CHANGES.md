@@ -1,4 +1,1 @@
-- Changed folder structure
-- removed the need for lazy_static
-- optimized release build for file size
-- added https support
+- Added social links to 1.4 mod response
