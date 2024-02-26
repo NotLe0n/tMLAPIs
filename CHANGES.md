@@ -1,1 +1,1 @@
-- Added social links to 1.4 mod response
+- Fixed crash

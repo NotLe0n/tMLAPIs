@@ -47,7 +47,7 @@ async fn get_author_info(steamid: u64, state: &State<Api14State>) -> Result<Cach
 			let mut total_views: u64 = 0;
 
 			// go through each mod
-			for publishedfiledetail in author_data.response.publishedfiledetails.unwrap() {
+			for publishedfiledetail in author_data.response.publishedfiledetails.unwrap_or_default() {
 				// increment total counts
 				total_downloads += publishedfiledetail.subscriptions as u64;
 				total_favorites += publishedfiledetail.favorited as u64;
