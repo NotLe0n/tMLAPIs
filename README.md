@@ -12,13 +12,25 @@ You can host tMLAPIs yourself by compiling this repo and running it on your own 
 Or you can use the API using the mirror: https://tmlapis.le0n.dev/
 
 ## How to build
-**Prerequisites**:
+### Prerequisites:
 * Install [cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html)
 
-**Running**:
+### Running
+**Bare metal:**
 1. Clone the repository
 2. Set the STEAM_API_KEY environment variable to your Steam API key. Go [here](https://steamcommunity.com/dev/apikey) to get one.
 3. Run with `cargo run --release`
+
+**Docker:**
+1. Clone the repository
+2. Build the image: `docker build -t tmlapis .`
+3. Run the image with the STEAM_API_KEY environment variable included:
+```
+docker run --name tmlapis \
+	-e STEAM_API_KEY=**** \
+	-dp 127.0.0.1:8000:8000 \
+	tmlapis
+```
 
 ## Documentation
 For api documentation, see the [wiki](https://github.com/NotLe0n/tMLAPIs/wiki) page.
