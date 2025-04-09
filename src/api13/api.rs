@@ -20,7 +20,7 @@ async fn get_html(url: &str) -> Result<Html, reqwest::Error> {
 #[get("/count")]
 pub async fn count_1_3() -> Result<Value, APIError> {
 	let html = get_html("http://javid.ddns.net/tModLoader/modmigrationprogress.php").await?;
-	let selector = Selector::parse("table > tbody > tr").unwrap(); // get all 'tr' inside 'tbody' and 'table'
+	let selector = Selector::parse("table > tbody > tr")?; // get all 'tr' inside 'tbody' and 'table'
 	let selection = html.select(&selector); // generate iterator based on selector
 	let count = selection.skip(1).count(); // count the number of elements except the first one
 
@@ -110,14 +110,14 @@ async fn get_author_info(steamid: u64, state: &State<Api13State>) -> Result<Cach
 				steam_name = steamid_to_steamname(steamid, &state.steam_api_key).await?;
 			}
 
-			let td_selector = &Selector::parse("td").unwrap();
+			let td_selector = &Selector::parse("td")?;
 
 			let html = get_html(&format!("http://javid.ddns.net/tModLoader/tools/ranksbysteamid.php?steamid64={}", steamid)).await?;
-			let table_selector = Selector::parse("table > tbody").unwrap();
+			let table_selector = Selector::parse("table > tbody")?;
 			let mut tables = html.select(&table_selector); // there are 4 tables
 
 			let first_table = tables.next().unwrap();
-			let mod_selector = &Selector::parse("tr:not(:first-child)").unwrap();
+			let mod_selector = &Selector::parse("tr:not(:first-child)")?;
 			let mods_data = first_table.select(mod_selector);
 			let mut mods: Vec<AuthorModInfo> = Vec::new();
 
@@ -142,7 +142,7 @@ async fn get_author_info(steamid: u64, state: &State<Api13State>) -> Result<Cach
 			}
 
 			let maintainer_table = tables.last().unwrap();
-			let maintained_mods_selector = Selector::parse("tr:not(:first-child)").unwrap();
+			let maintained_mods_selector = Selector::parse("tr:not(:first-child)")?;
 			let maintained_mods = maintainer_table.select(&maintained_mods_selector);
 
 			let mut maintained_mods_infos: Vec<MaintainedModInfo> = Vec::new();
@@ -194,8 +194,8 @@ pub async fn list_1_3(state: &State<Api13State>) -> Result<CacheResponse<Value>,
 	let mods = match cache {
 		Some(cached_value) => cached_value,
 		None => {
-			let mod_selector = &Selector::parse("table > tbody > tr:not(:first-child)").unwrap();
-			let td_selector = &Selector::parse("td").unwrap();
+			let mod_selector = &Selector::parse("table > tbody > tr:not(:first-child)")?;
+			let td_selector = &Selector::parse("td")?;
 
 			let mut mods: Vec<ModListInfo> = Vec::new();
 
@@ -254,10 +254,10 @@ pub async fn list_1_3(state: &State<Api13State>) -> Result<CacheResponse<Value>,
 #[get("/history/<modname>")]
 pub async fn history_1_3(modname: &str) -> Result<CacheResponse<Value>, APIError> {
 	let html = get_html(&format!("http://javid.ddns.net/tModLoader/tools/moddownloadhistory.php?modname={}", modname)).await?;
-	let versions_selector = &Selector::parse("table > tbody > tr:not(:first-child)").unwrap();
+	let versions_selector = &Selector::parse("table > tbody > tr:not(:first-child)")?;
 	let versions = html.select(versions_selector);
 
-	let td_selector = &Selector::parse("td").unwrap();
+	let td_selector = &Selector::parse("td")?;
 
 	let mut history: Vec<ModHistory> = Vec::new();
 	for version in versions {

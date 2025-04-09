@@ -104,24 +104,19 @@ fn get_filtered_mod_info(publishedfiledetail: &steamapi::PublishedFileDetails) -
 	let facebook = find_kvtag_value(&kvtags_iter, "facebook");
 
 	// the kvTags 'version' and 'modloaderversion' are deprecated
-	let mut versions: Vec<ModVersion> = Vec::new();
-
-	if version_summary == "" {
-		versions.push(ModVersion {
+	let versions = if version_summary.is_empty() {
+		vec![ModVersion {
 			mod_version: deprecated_version_mod,
 			tmodloader_version: deprecated_version_tmodloader,
-		});
+		}]
 	} else {
-		for pair in version_summary.split(&[';']) {
-			let mut pair_split = pair.split(&[':']);
-			let tmodloader_version = pair_split.next().unwrap().to_string();
-			let mod_version = pair_split.next().unwrap().to_string();
-
-			versions.push(ModVersion {
-				mod_version: mod_version,
-				tmodloader_version: tmodloader_version,
-			});
-		}
+		version_summary.split(';').map(|version| {
+			let mut c = version.splitn(2, ':');
+			ModVersion {
+				mod_version: c.next().unwrap().to_string(),
+				tmodloader_version: c.next().unwrap().to_string()
+			}
+		}).collect()
 	};
 
 	let socials: Option<ModSocials> = 
@@ -133,7 +128,6 @@ fn get_filtered_mod_info(publishedfiledetail: &steamapi::PublishedFileDetails) -
 				facebook, 
 			})
 		} else { None };
-		
 
 	// construct ModInfo struct
 	return ModInfo{
@@ -146,7 +140,7 @@ fn get_filtered_mod_info(publishedfiledetail: &steamapi::PublishedFileDetails) -
 		homepage,
 		versions,
 		mod_references,
-		num_versions: publishedfiledetail.revision_change_number.parse().unwrap(),
+		num_versions: publishedfiledetail.revision_change_number.parse().unwrap_or_default(),
 		tags: publishedfiledetail.tags,
 		time_created: publishedfiledetail.time_created,
 		time_updated: publishedfiledetail.time_updated,

@@ -11,7 +11,9 @@ pub enum APIError {
 	#[response(status = 400, content_type = "json")]
 	InvalidModName(String),
 	#[response(status = 400, content_type = "json")]
-	InvalidModID(String)
+	InvalidModID(String),
+	#[response(status = 500, content_type = "json")]
+	ScrapeError(String)
 }
 
 impl From<reqwest::Error> for APIError {
@@ -24,4 +26,10 @@ impl From<rocket::serde::json::serde_json::Error> for APIError {
     fn from(e: rocket::serde::json::serde_json::Error) -> Self {
 		APIError::JSONError(format!("could not parse json: {}", e.to_string()))
     }
+}
+
+impl From<scraper::error::SelectorErrorKind<'_>> for APIError {
+	fn from(e: scraper::error::SelectorErrorKind) -> Self {
+		APIError::ScrapeError(format!("could not scrape html: {}", e.to_string()))
+	}
 }
