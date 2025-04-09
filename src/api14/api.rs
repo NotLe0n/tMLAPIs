@@ -11,7 +11,7 @@ use super::{responses::*, Api14State};
 
 #[get("/count")]
 pub async fn count_1_4(state: &State<Api14State>) -> Result<Value, APIError> {
-    let url = format!("/IPublishedFileService/QueryFiles/v1/?key={}&appid={}&totalonly=true", state.steam_api_key, steamapi::APP_ID);
+	let url = format!("/IPublishedFileService/QueryFiles/v1/?key={}&appid={}&totalonly=true", state.steam_api_key, steamapi::APP_ID);
 	let count = get_steam_api_json::<steamapi::CountResponse>(&url).await?;
 
 	return Ok(json!(count.response));
@@ -19,7 +19,8 @@ pub async fn count_1_4(state: &State<Api14State>) -> Result<Value, APIError> {
 
 #[get("/author/<steamid>", rank=1)]
 pub async fn author_1_4(steamid: u64, state: &State<Api14State>) -> Result<CacheResponse<Value>, APIError> {
-    get_author_info(steamid, state).await
+	steamapi::validate_steamid64(steamid)?;
+	get_author_info(steamid, state).await
 }
 
 #[get("/author/<steamname>", rank=2)]
@@ -37,9 +38,10 @@ async fn get_author_info(steamid: u64, state: &State<Api14State>) -> Result<Cach
 	let author = match cache {
 		Some(cached_value) => cached_value.item,
 		None => {
-			let url = format!("/IPublishedFileService/GetUserFiles/v1/?key={}&appid={}&steamid={}&numperpage=100", state.steam_api_key, steamapi::APP_ID, steamapi::validate_steamid64(steamid)?);
-			let author_data = get_steam_api_json::<steamapi::ModListResponse>(&url).await
-				.map_err(|_| APIError::InvalidSteamID(format!("Could not find an author with the id {}", steamid)))?;
+			let steam_user = steamapi::get_user_info(steamid, &state.steam_api_key).await?;
+
+			let url = format!("/IPublishedFileService/GetUserFiles/v1/?key={}&appid={}&steamid={}&numperpage=100", state.steam_api_key, steamapi::APP_ID, steamid);
+			let author_data = get_steam_api_json::<steamapi::ModListResponse>(&url).await?;
 
 			let mut mods: Vec<ModInfo> = Vec::new();
 			let mut total_downloads: u64 = 0;
@@ -60,7 +62,7 @@ async fn get_author_info(steamid: u64, state: &State<Api14State>) -> Result<Cach
 			}
 			let author = AuthorInfo {
 				steam_id: steamid,
-				steam_name: steamapi::steamid_to_steamname(steamid, &state.steam_api_key).await?,
+				steam_name: steam_user.personaname,
 				mods,
 				total: author_data.response.total,
 				total_downloads,
@@ -229,8 +231,7 @@ pub async fn list_1_4(state: &State<Api14State>) -> Result<CacheResponse<Value>,
 				// get list of 100 mod ids
 				let url = format!("/IPublishedFileService/QueryFiles/v1/?key={}&appid={}&cursor={}&numperpage=10000&cache_max_age_seconds=0&return_details=true&return_kv_tags=true&return_children=true&return_tags=true&return_vote_data=true",
 								  state.steam_api_key, steamapi::APP_ID, urlencoding::encode(&next_cursor));
-				let list_res = get_steam_api_json::<steamapi::ModListResponse>(&url).await
-					.expect("mod list request failed!");
+				let list_res = get_steam_api_json::<steamapi::ModListResponse>(&url).await?;
 
 				if list_res.response.total == 0 || list_res.response.publishedfiledetails.is_none() {
 					break;
@@ -239,9 +240,7 @@ pub async fn list_1_4(state: &State<Api14State>) -> Result<CacheResponse<Value>,
 				let details = &list_res.response.publishedfiledetails.unwrap();
 
 				// add filtered mod info to vec
-				mods.append(
-					&mut details.iter().map(|x| get_filtered_mod_info(&x)).collect()
-				);
+				mods.extend(details.iter().map(get_filtered_mod_info).collect::<Vec<ModInfo>>());
 
 				next_cursor = list_res.response.next_cursor.unwrap();
 			}

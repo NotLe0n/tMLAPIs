@@ -144,12 +144,12 @@ pub struct SteamUserInfoResponse {
 	pub players: Vec<SteamUserInfo>
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(crate = "rocket::serde")]
 pub struct SteamUserInfo {
 	pub steamid: String,
 	pub communityvisibilitystate: u32,
-	pub profilestate: u32,
+	pub profilestate: Option<u32>,
 	pub personaname: String,
 	pub profileurl: String,
 	pub avatar: String,
@@ -165,7 +165,7 @@ pub struct SteamUserInfo {
 }
 
 pub async fn steamname_to_steamid(steamname: &str, api_key: &str) -> Result<u64, APIError> {
-	let steamid_url = format!("http://api.steampowered.com/ISteamUser/ResolveVanityURL/v0001/?key={}&vanityurl={}", api_key, steamname);
+	let steamid_url = format!("http://api.steampowered.com/ISteamUser/ResolveVanityURL/v1/?key={}&vanityurl={}", api_key, steamname);
 	let steamid_json = crate::get_json(&steamid_url).await?;
 	let steamid_res: Response<IDResponse> = json::serde_json::from_value(steamid_json)?;
 	let steamid: u64 = match steamid_res.response.steamid {
@@ -176,13 +176,13 @@ pub async fn steamname_to_steamid(steamname: &str, api_key: &str) -> Result<u64,
 	Ok(steamid)
 }
 
-pub async fn steamid_to_steamname(steamid: u64, api_key: &str) -> Result<String, APIError> {
+pub async fn get_user_info(steamid: u64, api_key: &str) -> Result<SteamUserInfo, APIError> {
 	let steaminfo_url = format!("https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?key={}&steamids={}", api_key, steamid);
 	let steaminfo_json = crate::get_json(&steaminfo_url).await?;
-	let steaminfo_res: Response<SteamUserInfoResponse> =  json::serde_json::from_value(steaminfo_json)?;
-	match steaminfo_res.response.players.get(0) {
-		Some(user) => Ok(user.personaname.clone()),
-		None => Err(APIError::SteamIDNotFound(format!("No steam name found for the specified steam id of: {}", steamid)))
+	let steaminfo_res: Response<SteamUserInfoResponse> = json::serde_json::from_value(steaminfo_json)?;
+	match steaminfo_res.response.players.first() {
+		Some(user) => Ok(user.clone()),
+		None => Err(APIError::SteamIDNotFound(format!("No steam user found for the specified steam id of: {}", steamid)))
 	}
 }
 

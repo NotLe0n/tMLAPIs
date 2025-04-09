@@ -84,7 +84,6 @@ fn index_mod() -> RawHtml<&'static str> {
 	just_input()
 }
 
-
 #[get("/author")]
 fn index_author() -> RawHtml<&'static str> {
 	just_input()

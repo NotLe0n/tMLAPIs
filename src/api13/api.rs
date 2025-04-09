@@ -5,7 +5,7 @@ use rocket::State;
 use rocket::serde::json::serde_json::{self, json, Value};
 use rocket_cache_response::CacheResponse;
 use scraper::{Html, Selector};
-use crate::{APIError, cached_json, steamapi, steamapi::steamid_to_steamname};
+use crate::{APIError, cached_json, steamapi, steamapi::get_user_info};
 use crate::cache::CacheItem;
 use crate::api13::responses::*;
 
@@ -105,10 +105,7 @@ async fn get_author_info(steamid: u64, state: &State<Api13State>) -> Result<Cach
 	let author = match cache {
 		Some(cached_value) => cached_value.item,
 		None => {
-			let steam_name;
-			{
-				steam_name = steamid_to_steamname(steamid, &state.steam_api_key).await?;
-			}
+			let steam_user = get_user_info(steamid, &state.steam_api_key).await?;
 
 			let td_selector = &Selector::parse("td")?;
 
@@ -159,7 +156,7 @@ async fn get_author_info(steamid: u64, state: &State<Api13State>) -> Result<Cach
 
 			let author = AuthorInfo {
 				steam_id: steamid,
-				steam_name,
+				steam_name: steam_user.personaname,
 				downloads_total: total_downloads,
 				downloads_yesterday: total_downloads_yesterday,
 				total: mods.len() as u32,

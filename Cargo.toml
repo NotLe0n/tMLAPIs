@@ -1,7 +1,7 @@
 [package]
 name = "tmlapis"
 version = "1.6.5"
-edition = "2021"
+edition = "2024"
 authors = ["NotLe0n"]
 description = "a series of tmodloader apis to help make dynamic websites and tools"
 readme = "README.md"
