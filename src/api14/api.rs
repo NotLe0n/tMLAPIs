@@ -3,20 +3,16 @@ extern crate reqwest;
 use std::collections::HashMap;
 
 use rocket::State;
-use rocket::serde::DeserializeOwned;
-use rocket::serde::json::serde_json::{self, json, Value};
+use rocket::serde::json::serde_json::{self, Value};
 use rocket_cache_response::CacheResponse;
-use crate::{APIError, cached_json, get_json, steamapi};
+use crate::{APIError, cached_json, steamapi};
 use crate::cache::CacheItem;
-use urlencoding;
 use super::{responses::*, Api14State};
 
 #[get("/count")]
 pub async fn count_1_4(state: &State<Api14State>) -> Result<Value, APIError> {
-	let url = format!("/IPublishedFileService/QueryFiles/v1/?key={}&appid={}&totalonly=true", state.steam_api_key, steamapi::APP_ID);
-	let count = get_steam_api_json::<steamapi::CountResponse>(&url).await?;
-
-	return Ok(json!(count.response));
+	let count = steamapi::get_mod_count(&state.steam_api_key).await?;
+	Ok(serde_json::json!(count))
 }
 
 #[get("/author/<steamid>", rank=1)]
@@ -41,9 +37,7 @@ async fn get_author_info(steamid: u64, state: &State<Api14State>) -> Result<Cach
 		Some(cached_value) => cached_value.item,
 		None => {
 			let steam_user = steamapi::get_user_info(steamid, &state.steam_api_key).await?;
-
-			let url = format!("/IPublishedFileService/GetUserFiles/v1/?key={}&appid={}&steamid={}&numperpage=100", state.steam_api_key, steamapi::APP_ID, steamid);
-			let author_data = get_steam_api_json::<steamapi::ModListResponse>(&url).await?;
+			let author_data = steamapi::get_user_mods(steamid, &state.steam_api_key).await?;
 
 			let mut mods: Vec<ModInfo> = Vec::new();
 			let mut total_downloads: u64 = 0;
@@ -51,7 +45,7 @@ async fn get_author_info(steamid: u64, state: &State<Api14State>) -> Result<Cach
 			let mut total_views: u64 = 0;
 
 			// go through each mod
-			for publishedfiledetail in author_data.response.publishedfiledetails.unwrap_or_default() {
+			for publishedfiledetail in author_data.publishedfiledetails.unwrap_or_default() {
 				// increment total counts
 				total_downloads += publishedfiledetail.subscriptions as u64;
 				total_favorites += publishedfiledetail.favorited as u64;
@@ -66,7 +60,7 @@ async fn get_author_info(steamid: u64, state: &State<Api14State>) -> Result<Cach
 				steam_id: steamid,
 				steam_name: steam_user.personaname,
 				mods,
-				total: author_data.response.total,
+				total: author_data.total,
 				total_downloads,
 				total_favorites,
 				total_views,
@@ -173,18 +167,11 @@ pub async fn mod_1_4(modid: u64, state: &State<Api14State>) -> Result<CacheRespo
 
 #[get("/mod/<modname>", rank=2)]
 pub async fn mod_1_4_str(modname: &str, state: &State<Api14State>) -> Result<CacheResponse<Value>, APIError> {
-	let mod_id = modname_to_modid(modname, state.steam_api_key.as_str()).await?;
+	let mod_id = steamapi::modname_to_modid(modname, &state.steam_api_key).await?;
 	let mod_data = get_mod_data(mod_id, state).await?;
 
 	let filtered_data = get_filtered_mod_info(&mod_data);
 	return cached_json!(filtered_data, 3600, false);
-}
-
-async fn modname_to_modid(modname: &str, api_key: &str) -> Result<u64, APIError> {
-	let url = format!("/IPublishedFileService/QueryFiles/v1/?key={}&input_json=%7B%22appid%22:{},%20%22required_kv_tags%22:[%7B%22key%22:%22name%22,%22value%22:%22{}%22%7D]%7D", api_key, steamapi::APP_ID, modname);
-	let mod_id = get_steam_api_json::<steamapi::ModIDListResponse>(&url).await
-		.map_err(|_| APIError::InvalidModID(format!("Could not find mod with the provided name: {}", modname)))?;
-	Ok(mod_id.response.publishedfiledetails[0].publishedfileid.parse().unwrap())
 }
 
 async fn get_mod_data(modid: u64, state: &State<Api14State>) -> Result<steamapi::PublishedFileDetails, APIError> {
@@ -196,11 +183,10 @@ async fn get_mod_data(modid: u64, state: &State<Api14State>) -> Result<steamapi:
 	return match cache {
 		Some(cached_value) => Ok(cached_value.item),
 		None => {
-			let url = format!("/IPublishedFileService/GetDetails/v1/?key={}&publishedfileids%5B0%5D={}&includekvtags=true&includechildren=true&includetags=true&includevotes=true", state.steam_api_key, modid);
-			let mod_info = get_steam_api_json::<steamapi::ModResponse>(&url).await
+			let mod_info = steamapi::get_mod_info(modid, &state.steam_api_key).await
 				.map_err(|_| APIError::InvalidModID(format!("Could not find a mod with the id {}", modid)))?;
 
-			let details = mod_info.response.publishedfiledetails[0].clone();
+			let details = mod_info.publishedfiledetails[0].clone();
 
 			// update cache value
 			let mut cache = state.mod_cache.lock().unwrap();
@@ -232,23 +218,18 @@ pub async fn list_1_4(state: &State<Api14State>) -> Result<CacheResponse<Value>,
 			let mut mods: Vec<ModInfo> = Vec::new();
 			let mut next_cursor = String::from("*");
 			loop {
-				// get list of 100 mod ids
-				let url = format!("https://api.steampowered.com/IPublishedFileService/QueryFiles/v1/?key={}&appid={}&cursor={}&numperpage=10000&cache_max_age_seconds=0&return_details=true&return_kv_tags=true&return_children=true&return_tags=true&return_vote_data=true",
-								  state.steam_api_key, steamapi::APP_ID, urlencoding::encode(&next_cursor));
+				let list = steamapi::get_mod_list(&client, &next_cursor, &state.steam_api_key).await?;
 				
-				let res = client.get(url).send().await?;
-				let list_res = res.json::<steamapi::Response<steamapi::ModListResponse>>().await?;
-
-				if list_res.response.total == 0 || list_res.response.publishedfiledetails.is_none() {
+				if list.total == 0 || list.publishedfiledetails.is_none() {
 					break;
 				}
 
-				let details = &list_res.response.publishedfiledetails.unwrap();
+				let details = &list.publishedfiledetails.unwrap();
 
 				// add filtered mod info to vec
 				mods.extend(details.iter().map(get_filtered_mod_info).collect::<Vec<ModInfo>>());
 
-				next_cursor = list_res.response.next_cursor.unwrap();
+				next_cursor = list.next_cursor.unwrap();
 			}
 
 			// update cache value
@@ -259,8 +240,4 @@ pub async fn list_1_4(state: &State<Api14State>) -> Result<CacheResponse<Value>,
 			cached_json!(mods, 7200, false)
 		}
 	};
-}
-
-async fn get_steam_api_json<T: DeserializeOwned>(url: &str) -> Result<steamapi::Response<T>, APIError> {
-	Ok(get_json::<steamapi::Response<T>>(&format!("https://api.steampowered.com{}", url)).await?)
 }
