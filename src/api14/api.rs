@@ -1,5 +1,7 @@
 extern crate reqwest;
 
+use std::collections::HashMap;
+
 use rocket::State;
 use rocket::serde::DeserializeOwned;
 use rocket::serde::json::serde_json::{self, json, Value};
@@ -89,21 +91,21 @@ fn get_filtered_mod_info(publishedfiledetail: &steamapi::PublishedFileDetails) -
 
 	// tml specific data
 	let kvtags = publishedfiledetail.kvtags.unwrap_or_default();
-	let kvtags_iter = kvtags.iter();
 
 	// get data from kvtags field
-	let internal_name = find_kvtag_value(&kvtags_iter, "name");
-	let author = find_kvtag_value(&kvtags_iter, "Author");
-	let modside = find_kvtag_value(&kvtags_iter, "modside");
-	let homepage = find_kvtag_value(&kvtags_iter, "homepage");
-	let deprecated_version_mod = find_kvtag_value(&kvtags_iter, "version");
-	let deprecated_version_tmodloader = find_kvtag_value(&kvtags_iter, "modloaderversion");
-	let version_summary = find_kvtag_value(&kvtags_iter, "versionsummary");
-	let mod_references = find_kvtag_value(&kvtags_iter, "modreferences");
-	let youtube = find_kvtag_value(&kvtags_iter, "youtube");
-	let twitter = find_kvtag_value(&kvtags_iter, "twitter");
-	let reddit = find_kvtag_value(&kvtags_iter, "reddit");
-	let facebook = find_kvtag_value(&kvtags_iter, "facebook");
+	let kv_map: HashMap<String, String> = kvtags.iter().map(|x| (x.key.clone(), x.value.clone())).collect();
+	let internal_name = kv_map.get("name").cloned().unwrap_or_default();
+	let author = kv_map.get("Author").cloned().unwrap_or_default();
+	let modside = kv_map.get("modside").cloned().unwrap_or_default();
+	let homepage = kv_map.get("homepage").cloned().unwrap_or_default();
+	let deprecated_version_mod = kv_map.get("version").cloned().unwrap_or_default();
+	let deprecated_version_tmodloader = kv_map.get("modloaderversion").cloned().unwrap_or_default();
+	let version_summary = kv_map.get("versionsummary").cloned().unwrap_or_default();
+	let mod_references = kv_map.get("modreferences").cloned().unwrap_or_default();
+	let youtube = kv_map.get("youtube").cloned().unwrap_or_default();
+	let twitter = kv_map.get("twitter").cloned().unwrap_or_default();
+	let reddit = kv_map.get("reddit").cloned().unwrap_or_default();
+	let facebook = kv_map.get("facebook").cloned().unwrap_or_default();
 
 	// the kvTags 'version' and 'modloaderversion' are deprecated
 	let versions = if version_summary.is_empty() {
@@ -225,13 +227,17 @@ pub async fn list_1_4(state: &State<Api14State>) -> Result<CacheResponse<Value>,
 	return match cache {
 		Some(cached_value) => cached_json!(cached_value, 7200, false),
 		None => {
+			let client = reqwest::Client::new();
+
 			let mut mods: Vec<ModInfo> = Vec::new();
 			let mut next_cursor = String::from("*");
 			loop {
 				// get list of 100 mod ids
-				let url = format!("/IPublishedFileService/QueryFiles/v1/?key={}&appid={}&cursor={}&numperpage=10000&cache_max_age_seconds=0&return_details=true&return_kv_tags=true&return_children=true&return_tags=true&return_vote_data=true",
+				let url = format!("https://api.steampowered.com/IPublishedFileService/QueryFiles/v1/?key={}&appid={}&cursor={}&numperpage=10000&cache_max_age_seconds=0&return_details=true&return_kv_tags=true&return_children=true&return_tags=true&return_vote_data=true",
 								  state.steam_api_key, steamapi::APP_ID, urlencoding::encode(&next_cursor));
-				let list_res = get_steam_api_json::<steamapi::ModListResponse>(&url).await?;
+				
+				let res = client.get(url).send().await?;
+				let list_res = res.json::<steamapi::Response<steamapi::ModListResponse>>().await?;
 
 				if list_res.response.total == 0 || list_res.response.publishedfiledetails.is_none() {
 					break;
@@ -256,16 +262,5 @@ pub async fn list_1_4(state: &State<Api14State>) -> Result<CacheResponse<Value>,
 }
 
 async fn get_steam_api_json<T: DeserializeOwned>(url: &str) -> Result<steamapi::Response<T>, APIError> {
-	let json = get_json(&format!("https://api.steampowered.com{}", url)).await?;
-	Ok(serde_json::from_value::<steamapi::Response<T>>(json)?)
-}
-
-fn find_kvtag_value(iter: &std::slice::Iter<steamapi::KVTag>, key: &str) -> String {
-	for tag in iter.clone() {
-		if tag.key == key {
-			return tag.value.clone();
-		}
-	};
-
-	return String::default();
+	Ok(get_json::<steamapi::Response<T>>(&format!("https://api.steampowered.com{}", url)).await?)
 }

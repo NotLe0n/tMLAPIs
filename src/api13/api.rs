@@ -41,13 +41,10 @@ pub async fn mod_1_3(modname: &str, state: &State<Api13State>) -> Result<CacheRe
 		Some(cached_value) => cached_value.item,
 		None => {
 			// get mod info
-			let modinfo_json = crate::get_json(&format!("http://javid.ddns.net/tModLoader/tools/modinfo.php?modname={}", modname)).await.map_err(|_| {
+			let mut modinfo: ModInfo = crate::get_json(&format!("http://javid.ddns.net/tModLoader/tools/modinfo.php?modname={}", modname)).await.map_err(|_| {
 				APIError::InvalidModName(format!("The mod '{}' does not exist", modname))
 			})?;
 
-			let mut modinfo: ModInfo = serde_json::from_value(modinfo_json).map_err(|_| {
-				APIError::InvalidModName(format!("The mod '{}' does not exist", modname))
-			})?;
 
 			// get description response; save info in DescriptionResponse struct
 			let response = reqwest::Client::new()

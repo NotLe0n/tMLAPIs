@@ -18,6 +18,7 @@ use api14::Api14State;
 use rocket::serde::json::{Value, serde_json};
 use rocket::response::content::RawHtml;
 use rocket::fs::FileServer;
+use rocket::serde::DeserializeOwned;
 
 #[macro_export]
 macro_rules! cached_json {
@@ -31,11 +32,9 @@ macro_rules! cached_json {
 }
 
 // does a get reqwests on the specified URL and Returns a Json<String> if successful or a Status if it errored
-async fn get_json(url: &str) -> Result<Value, APIError> {
+async fn get_json<T: DeserializeOwned>(url: &str) -> Result<T, APIError> {
 	let res = reqwest::get(url).await?;
-    let body = res.text().await?;
-
-	Ok(serde_json::from_str(&body)?)
+	Ok(res.json::<T>().await?)
 }
 
 #[get("/")]

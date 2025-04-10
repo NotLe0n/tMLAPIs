@@ -1,6 +1,6 @@
 // import libraries
 extern crate reqwest;
-use rocket::serde::{json, Deserialize, Serialize};
+use rocket::serde::{Deserialize, Serialize};
 use crate::APIError;
 
 pub const APP_ID: &str = "1281930";
@@ -166,8 +166,7 @@ pub struct SteamUserInfo {
 
 pub async fn steamname_to_steamid(steamname: &str, api_key: &str) -> Result<u64, APIError> {
 	let steamid_url = format!("http://api.steampowered.com/ISteamUser/ResolveVanityURL/v1/?key={}&vanityurl={}", api_key, steamname);
-	let steamid_json = crate::get_json(&steamid_url).await?;
-	let steamid_res: Response<IDResponse> = json::serde_json::from_value(steamid_json)?;
+	let steamid_res: Response<IDResponse> = crate::get_json(&steamid_url).await?;
 	let steamid: u64 = match steamid_res.response.steamid {
 		Some(id) => Ok(id.parse().unwrap()),
 		None => Err(APIError::SteamIDNotFound(format!("No steamid found for the specified steam name of: {}", steamname)))
@@ -178,8 +177,7 @@ pub async fn steamname_to_steamid(steamname: &str, api_key: &str) -> Result<u64,
 
 pub async fn get_user_info(steamid: u64, api_key: &str) -> Result<SteamUserInfo, APIError> {
 	let steaminfo_url = format!("https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?key={}&steamids={}", api_key, steamid);
-	let steaminfo_json = crate::get_json(&steaminfo_url).await?;
-	let steaminfo_res: Response<SteamUserInfoResponse> = json::serde_json::from_value(steaminfo_json)?;
+	let steaminfo_res: Response<SteamUserInfoResponse> = crate::get_json(&steaminfo_url).await?;
 	match steaminfo_res.response.players.first() {
 		Some(user) => Ok(user.clone()),
 		None => Err(APIError::SteamIDNotFound(format!("No steam user found for the specified steam id of: {}", steamid)))
