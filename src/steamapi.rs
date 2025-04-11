@@ -26,7 +26,8 @@ pub struct CountResponse {
 #[derive(Deserialize, Debug)]
 #[serde(crate = "rocket::serde")]
 pub struct IDResponse {
-	pub steamid: Option<String>
+	pub steamid: Option<String>,
+	#[allow(dead_code)] pub success: u32
 }
 
 #[derive(Deserialize, Debug)]

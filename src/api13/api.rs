@@ -11,6 +11,8 @@ use crate::api13::responses::*;
 
 use super::Api13State;
 
+const API_URL: &str = "http://javid.ddns.net/tModLoader";
+
 async fn get_html(url: &str) -> Result<Html, reqwest::Error> {
 	let res = reqwest::get(url).await?;
     let body = res.text().await?;
@@ -19,7 +21,7 @@ async fn get_html(url: &str) -> Result<Html, reqwest::Error> {
 
 #[get("/count")]
 pub async fn count_1_3() -> Result<Value, APIError> {
-	let html = get_html("http://javid.ddns.net/tModLoader/modmigrationprogress.php").await?;
+	let html = get_html(&format!("{API_URL}/modmigrationprogress.php")).await?;
 	let selector = Selector::parse("table > tbody > tr")?; // get all 'tr' inside 'tbody' and 'table'
 	let selection = html.select(&selector); // generate iterator based on selector
 	let count = selection.skip(1).count(); // count the number of elements except the first one
@@ -40,31 +42,29 @@ pub async fn mod_1_3(modname: &str, state: &State<Api13State>) -> Result<CacheRe
 	let mod_info = match cache {
 		Some(cached_value) => cached_value.item,
 		None => {
+			let client = reqwest::Client::new();
+
 			// get mod info
-			let mut modinfo: ModInfo = crate::get_json(&format!("http://javid.ddns.net/tModLoader/tools/modinfo.php?modname={}", modname)).await.map_err(|_| {
+			let res = client.get(&format!("{API_URL}/tools/modinfo.php?modname={}", modname)).send().await?;
+			let mut modinfo: ModInfo = res.json::<ModInfo>().await.map_err(|_| {
 				APIError::InvalidModName(modname.to_owned())
 			})?;
 
-
 			// get description response; save info in DescriptionResponse struct
-			let response = reqwest::Client::new()
-				.post("http://javid.ddns.net/tModLoader/moddescription.php")
+			let description: DescriptionResponse = client 
+				.post(format!("{API_URL}/moddescription.php"))
 				.form(&HashMap::from([("modname", &modname)]))
-				.send()
-				.await?;
+				.send().await?
+				.json().await?;
 
-			let description_json = response.text().await.map_err(|_| {
-				APIError::ReqwestError("Post request on 'http://javid.ddns.net/tModLoader/moddescription.php' failed".to_string())
-			})?;
-
-			let description_res: DescriptionResponse = serde_json::from_str(&description_json)?;
-			modinfo.description = Some(description_res.description);
-			modinfo.homepage = Some(description_res.homepage);
+			modinfo.description = Some(description.description);
+			modinfo.homepage = Some(description.homepage);
 
 			// get icon url if it exists
-			let res = reqwest::get(format!("https://mirror.sgkoi.dev/direct/{}.png", modname)).await;
+			let icon_url = format!("{API_URL}/modicons/modiconuploads/{}_{}.png", modname, modinfo.version);
+			let res = client.get(&icon_url).send().await;
 			modinfo.icon = match res {
-				Ok(_) => Some(format!("https://mirror.sgkoi.dev/direct/{}.png", modname)),
+				Ok(_) => Some(icon_url),
 				Err(_) => None
 			};
 
@@ -106,7 +106,7 @@ async fn get_author_info(steamid: u64, state: &State<Api13State>) -> Result<Cach
 
 			let td_selector = &Selector::parse("td")?;
 
-			let html = get_html(&format!("http://javid.ddns.net/tModLoader/tools/ranksbysteamid.php?steamid64={}", steamid)).await?;
+			let html = get_html(&format!("{API_URL}/tools/ranksbysteamid.php?steamid64={}", steamid)).await?;
 			let table_selector = Selector::parse("table > tbody")?;
 			let mut tables = html.select(&table_selector); // there are 4 tables
 
@@ -195,7 +195,7 @@ pub async fn list_1_3(state: &State<Api13State>) -> Result<CacheResponse<Value>,
 
 			// new scopes because funny errors
 			{
-				let html = get_html("http://javid.ddns.net/tModLoader/modmigrationprogressalltime.php").await?;
+				let html = get_html(&format!("{API_URL}/modmigrationprogressalltime.php")).await?;
 				let mod_infos = html.select(mod_selector);
 
 				for info in mod_infos {
@@ -216,7 +216,7 @@ pub async fn list_1_3(state: &State<Api13State>) -> Result<CacheResponse<Value>,
 			}
 
 			{
-				let html = get_html("http://javid.ddns.net/tModLoader/modmigrationprogress.php").await?;
+				let html = get_html(&format!("{API_URL}/modmigrationprogress.php")).await?;
 				let mod_infos = html.select(mod_selector);
 
 				for info in mod_infos {
@@ -247,7 +247,7 @@ pub async fn list_1_3(state: &State<Api13State>) -> Result<CacheResponse<Value>,
 
 #[get("/history/<modname>")]
 pub async fn history_1_3(modname: &str) -> Result<CacheResponse<Value>, APIError> {
-	let html = get_html(&format!("http://javid.ddns.net/tModLoader/tools/moddownloadhistory.php?modname={}", modname)).await?;
+	let html = get_html(&format!("{API_URL}/tools/moddownloadhistory.php?modname={}", modname)).await?;
 	let versions_selector = &Selector::parse("table > tbody > tr:not(:first-child)")?;
 	let versions = html.select(versions_selector);
 
