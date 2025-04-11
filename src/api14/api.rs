@@ -183,10 +183,7 @@ async fn get_mod_data(modid: u64, state: &State<Api14State>) -> Result<steamapi:
 	return match cache {
 		Some(cached_value) => Ok(cached_value.item),
 		None => {
-			let mod_info = steamapi::get_mod_info(modid, &state.steam_api_key).await
-				.map_err(|_| APIError::InvalidModID(format!("Could not find a mod with the id {}", modid)))?;
-
-			let details = mod_info.publishedfiledetails[0].clone();
+			let details = steamapi::get_mod_info(modid, &state.steam_api_key).await?;
 
 			// update cache value
 			let mut cache = state.mod_cache.lock().unwrap();

@@ -1,5 +1,6 @@
 extern crate reqwest;
 use rocket::serde::{Deserialize, Serialize};
+use rocket::serde::json::serde_json::Value;
 use crate::{APIError, get_json};
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -8,27 +9,33 @@ pub struct Response<T> {
 	pub response: T
 }
 
+// serde tries to serialize T, if it is successful => Ok, otherwise => Err
+#[derive(Debug, Deserialize, Clone)]
+#[serde(crate = "rocket::serde", untagged)]
+pub enum SteamResult<T> {
+	Ok(T),
+	#[allow(dead_code)] Err(Value) // fallback
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(crate = "rocket::serde")]
 pub struct CountResponse {
 	pub total: u32,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Deserialize, Debug)]
 #[serde(crate = "rocket::serde")]
 pub struct IDResponse {
-	pub message: Option<String>,
-	pub steamid: Option<String>,
-	pub success: u8
+	pub steamid: Option<String>
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Deserialize, Debug)]
 #[serde(crate = "rocket::serde")]
 pub struct ModResponse {
-	pub publishedfiledetails: Vec<PublishedFileDetails>
+	pub publishedfiledetails: Vec<SteamResult<PublishedFileDetails>>
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Deserialize, Debug)]
 #[serde(crate = "rocket::serde")]
 pub struct ModListResponse {
 	pub total: u32,
@@ -36,20 +43,21 @@ pub struct ModListResponse {
 	pub publishedfiledetails: Option<Vec<PublishedFileDetails>>
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Deserialize, Debug)]
 #[serde(crate = "rocket::serde")]
 pub struct ModIDListResponse {
-	pub publishedfiledetails: Vec<PublishedFileID>
+	pub publishedfiledetails: Option<Vec<PublishedFileID>>
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Deserialize, Debug)]
 #[serde(crate = "rocket::serde")]
 pub struct PublishedFileID {
 	pub publishedfileid: String
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(crate = "rocket::serde")]
+#[allow(dead_code)]
 pub struct PublishedFileDetails {
 	pub app_name: String,
 	pub ban_reason: String,
@@ -121,7 +129,7 @@ pub struct VoteData {
 	pub votes_down: u32
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(crate = "rocket::serde")]
 pub struct KVTag {
 	pub key: String,
@@ -135,14 +143,15 @@ pub struct ModTag {
 	pub display_name: String
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Deserialize, Debug)]
 #[serde(crate = "rocket::serde")]
 pub struct SteamUserInfoResponse {
 	pub players: Vec<SteamUserInfo>
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(crate = "rocket::serde")]
+#[allow(dead_code)]
 pub struct SteamUserInfo {
 	pub steamid: String,
 	pub communityvisibilitystate: u32,
@@ -176,17 +185,24 @@ pub async fn get_user_mods(steamid: u64, api_key: &str) -> Result<ModListRespons
 	Ok(res.response)
 }
 
-pub async fn get_mod_info(modid: u64 , api_key: &str) -> Result<ModResponse, APIError> {
+pub async fn get_mod_info(modid: u64 , api_key: &str) -> Result<PublishedFileDetails, APIError> {
 	let url = format!("{STEAM_API_URL}/IPublishedFileService/GetDetails/v1/?key={}&publishedfileids%5B0%5D={}&includekvtags=true&includechildren=true&includetags=true&includevotes=true", api_key, modid);
 	let res = get_json::<Response<ModResponse>>(&url).await?;
-	Ok(res.response)
+	
+	match res.response.publishedfiledetails[0].clone() {
+		SteamResult::Ok(pfd) => Ok(pfd),
+		SteamResult::Err(_) => Err(APIError::InvalidModID(format!("Could not find a mod with the id {}", modid)))
+	}
 }
 
 pub async fn modname_to_modid(modname: &str, api_key: &str) -> Result<u64, APIError> {
 	let url = format!("{STEAM_API_URL}/IPublishedFileService/QueryFiles/v1/?key={}&input_json=%7B%22appid%22:{APP_ID},%20%22required_kv_tags%22:[%7B%22key%22:%22name%22,%22value%22:%22{}%22%7D]%7D", api_key, modname);
-	let res = get_json::<Response<ModIDListResponse>>(&url).await
-		.map_err(|_| APIError::InvalidModID(format!("Could not find mod with the provided name: {}", modname)))?;
-	Ok(res.response.publishedfiledetails[0].publishedfileid.parse().unwrap())
+	let res = get_json::<Response<ModIDListResponse>>(&url).await?;
+	
+	match res.response.publishedfiledetails {
+		Some(pfd) => Ok(pfd[0].publishedfileid.parse().unwrap()),
+		None => Err(APIError::InvalidModID(format!("Could not find mod with the provided name: {}", modname)))
+	}
 }
 
 pub async fn get_mod_list(client: &reqwest::Client, cursor: &str, api_key: &str) -> Result<ModListResponse, APIError> {
@@ -199,6 +215,7 @@ pub async fn get_mod_list(client: &reqwest::Client, cursor: &str, api_key: &str)
 pub async fn steamname_to_steamid(steamname: &str, api_key: &str) -> Result<u64, APIError> {
 	let url = format!("{STEAM_API_URL}/ISteamUser/ResolveVanityURL/v1/?key={}&vanityurl={}", api_key, steamname);
 	let res: Response<IDResponse> = get_json(&url).await?;
+	
 	match res.response.steamid {
 		Some(id) => Ok(id.parse().unwrap()),
 		None => Err(APIError::SteamIDNotFound(format!("No steamid found for the specified steam name of: {}", steamname)))
@@ -208,6 +225,7 @@ pub async fn steamname_to_steamid(steamname: &str, api_key: &str) -> Result<u64,
 pub async fn get_user_info(steamid: u64, api_key: &str) -> Result<SteamUserInfo, APIError> {
 	let url = format!("{STEAM_API_URL}/ISteamUser/GetPlayerSummaries/v2/?key={}&steamids={}", api_key, steamid);
 	let res: Response<SteamUserInfoResponse> = get_json(&url).await?;
+	
 	match res.response.players.first() {
 		Some(user) => Ok(user.clone()),
 		None => Err(APIError::SteamIDNotFound(format!("No steam user found for the specified steam id of: {}", steamid)))
