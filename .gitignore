@@ -2,3 +2,4 @@
 /.idea
 Rocket.toml
 .env
+*.log

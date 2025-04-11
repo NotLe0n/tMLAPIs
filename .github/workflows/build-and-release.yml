@@ -32,8 +32,8 @@ jobs:
           files: |
             ./target/release/tmlapis
           tag_name: ${{ steps.version_check.outputs.releaseVersion }}
-          release_name: Release v${{ steps.version_check.outputs.releaseVersion }}
-          body: "TODO: Update before publish"
+          name: Release v${{ steps.version_check.outputs.releaseVersion }}
+          body: "# Changes\nTODO: Update before publish"
           draft: true
           prerelease: false
           fail_on_unmatched_files: true

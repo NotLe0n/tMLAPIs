@@ -1,7 +1,8 @@
 extern crate reqwest;
-use rocket::serde::{Deserialize, Serialize};
+use log::debug;
+use rocket::serde::{Deserialize, DeserializeOwned, Serialize};
 use rocket::serde::json::serde_json::Value;
-use crate::{APIError, get_json};
+use crate::APIError;
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(crate = "rocket::serde")]
@@ -174,33 +175,38 @@ pub struct SteamUserInfo {
 const STEAM_API_URL: &str = "https://api.steampowered.com";
 pub const APP_ID: &str = "1281930";
 
+// does a get reqwests on the specified URL and Returns a Json<String> if successful or a Status if it errored
+async fn get_steam<T: DeserializeOwned>(url: &str) -> Result<T, APIError> {
+	let res = reqwest::get(format!("{STEAM_API_URL}{url}")).await?;
+	debug!("Requesting SteamAPI at: {STEAM_API_URL}{url}");
+	Ok(res.json::<Response<T>>().await?.response)
+}
+
 pub async fn get_mod_count(api_key: &str) -> Result<CountResponse, APIError> {
-	let url = format!("{STEAM_API_URL}/IPublishedFileService/QueryFiles/v1/?key={}&appid={APP_ID}&totalonly=true", api_key);
-	let res = get_json::<Response<CountResponse>>(&url).await?;
-	Ok(res.response)
+	let url = format!("/IPublishedFileService/QueryFiles/v1/?key={}&appid={APP_ID}&totalonly=true", api_key);
+	Ok(get_steam::<CountResponse>(&url).await?)
 }
 
 pub async fn get_user_mods(steamid: u64, api_key: &str) -> Result<ModListResponse, APIError> {
-	let url = format!("{STEAM_API_URL}/IPublishedFileService/GetUserFiles/v1/?key={}&appid={APP_ID}&steamid={}&numperpage=100", api_key, steamid);
-	let res = get_json::<Response<ModListResponse>>(&url).await?;
-	Ok(res.response)
+	let url = format!("/IPublishedFileService/GetUserFiles/v1/?key={}&appid={APP_ID}&steamid={}&numperpage=100", api_key, steamid);
+	Ok(get_steam::<ModListResponse>(&url).await?)
 }
 
 pub async fn get_mod_info(modid: u64 , api_key: &str) -> Result<PublishedFileDetails, APIError> {
-	let url = format!("{STEAM_API_URL}/IPublishedFileService/GetDetails/v1/?key={}&publishedfileids%5B0%5D={}&includekvtags=true&includechildren=true&includetags=true&includevotes=true", api_key, modid);
-	let res = get_json::<Response<ModResponse>>(&url).await?;
+	let url = format!("/IPublishedFileService/GetDetails/v1/?key={}&publishedfileids%5B0%5D={}&includekvtags=true&includechildren=true&includetags=true&includevotes=true", api_key, modid);
+	let res = get_steam::<ModResponse>(&url).await?;
 	
-	match res.response.publishedfiledetails[0].clone() {
+	match res.publishedfiledetails[0].clone() {
 		SteamResult::Ok(pfd) => Ok(pfd),
 		SteamResult::Err(_) => Err(APIError::InvalidModID(modid))
 	}
 }
 
 pub async fn modname_to_modid(modname: &str, api_key: &str) -> Result<u64, APIError> {
-	let url = format!("{STEAM_API_URL}/IPublishedFileService/QueryFiles/v1/?key={}&input_json=%7B%22appid%22:{APP_ID},%20%22required_kv_tags%22:[%7B%22key%22:%22name%22,%22value%22:%22{}%22%7D]%7D", api_key, modname);
-	let res = get_json::<Response<ModIDListResponse>>(&url).await?;
+	let url = format!("/IPublishedFileService/QueryFiles/v1/?key={}&input_json=%7B%22appid%22:{APP_ID},%20%22required_kv_tags%22:[%7B%22key%22:%22name%22,%22value%22:%22{}%22%7D]%7D", api_key, modname);
+	let res = get_steam::<ModIDListResponse>(&url).await?;
 	
-	match res.response.publishedfiledetails {
+	match res.publishedfiledetails {
 		Some(pfd) => Ok(pfd[0].publishedfileid.parse().unwrap()),
 		None => Err(APIError::InvalidModName(modname.to_owned()))
 	}
@@ -214,20 +220,20 @@ pub async fn get_mod_list(client: &reqwest::Client, cursor: &str, api_key: &str)
 }
 
 pub async fn steamname_to_steamid(steamname: &str, api_key: &str) -> Result<u64, APIError> {
-	let url = format!("{STEAM_API_URL}/ISteamUser/ResolveVanityURL/v1/?key={}&vanityurl={}", api_key, steamname);
-	let res: Response<IDResponse> = get_json(&url).await?;
+	let url = format!("/ISteamUser/ResolveVanityURL/v1/?key={}&vanityurl={}", api_key, steamname);
+	let res: IDResponse = get_steam(&url).await?;
 	
-	match res.response.steamid {
+	match res.steamid {
 		Some(id) => Ok(id.parse().unwrap()),
 		None => Err(APIError::SteamNameNotResolveable(steamname.to_owned()))
 	}
 }
 
 pub async fn get_user_info(steamid: u64, api_key: &str) -> Result<SteamUserInfo, APIError> {
-	let url = format!("{STEAM_API_URL}/ISteamUser/GetPlayerSummaries/v2/?key={}&steamids={}", api_key, steamid);
-	let res: Response<SteamUserInfoResponse> = get_json(&url).await?;
+	let url = format!("/ISteamUser/GetPlayerSummaries/v2/?key={}&steamids={}", api_key, steamid);
+	let res: SteamUserInfoResponse = get_steam(&url).await?;
 	
-	match res.response.players.first() {
+	match res.players.first() {
 		Some(user) => Ok(user.clone()),
 		None => Err(APIError::SteamIDNotFound(steamid))
 	}
