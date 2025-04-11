@@ -42,7 +42,7 @@ pub async fn mod_1_3(modname: &str, state: &State<Api13State>) -> Result<CacheRe
 		None => {
 			// get mod info
 			let mut modinfo: ModInfo = crate::get_json(&format!("http://javid.ddns.net/tModLoader/tools/modinfo.php?modname={}", modname)).await.map_err(|_| {
-				APIError::InvalidModName(format!("The mod '{}' does not exist", modname))
+				APIError::InvalidModName(modname.to_owned())
 			})?;
 
 

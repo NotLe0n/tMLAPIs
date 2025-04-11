@@ -191,7 +191,7 @@ pub async fn get_mod_info(modid: u64 , api_key: &str) -> Result<PublishedFileDet
 	
 	match res.response.publishedfiledetails[0].clone() {
 		SteamResult::Ok(pfd) => Ok(pfd),
-		SteamResult::Err(_) => Err(APIError::InvalidModID(format!("Could not find a mod with the id {}", modid)))
+		SteamResult::Err(_) => Err(APIError::InvalidModID(modid))
 	}
 }
 
@@ -201,7 +201,7 @@ pub async fn modname_to_modid(modname: &str, api_key: &str) -> Result<u64, APIEr
 	
 	match res.response.publishedfiledetails {
 		Some(pfd) => Ok(pfd[0].publishedfileid.parse().unwrap()),
-		None => Err(APIError::InvalidModID(format!("Could not find mod with the provided name: {}", modname)))
+		None => Err(APIError::InvalidModName(modname.to_owned()))
 	}
 }
 
@@ -218,7 +218,7 @@ pub async fn steamname_to_steamid(steamname: &str, api_key: &str) -> Result<u64,
 	
 	match res.response.steamid {
 		Some(id) => Ok(id.parse().unwrap()),
-		None => Err(APIError::SteamIDNotFound(format!("No steamid found for the specified steam name of: {}", steamname)))
+		None => Err(APIError::SteamNameNotResolveable(steamname.to_owned()))
 	}
 }
 
@@ -228,7 +228,7 @@ pub async fn get_user_info(steamid: u64, api_key: &str) -> Result<SteamUserInfo,
 	
 	match res.response.players.first() {
 		Some(user) => Ok(user.clone()),
-		None => Err(APIError::SteamIDNotFound(format!("No steam user found for the specified steam id of: {}", steamid)))
+		None => Err(APIError::SteamIDNotFound(steamid))
 	}
 }
 
@@ -236,6 +236,6 @@ pub async fn get_user_info(steamid: u64, api_key: &str) -> Result<SteamUserInfo,
 pub fn validate_steamid64(steamid: u64) -> Result<u64, APIError> {
 	match steamid {
 		0x0110000100000001..=0x01100001FFFFFFFF => Ok(steamid),
-		_ => Err(APIError::InvalidSteamID(format!("The steamid '{}' is invalid", steamid)))
+		_ => Err(APIError::InvalidSteamID(steamid))
 	}
 }
