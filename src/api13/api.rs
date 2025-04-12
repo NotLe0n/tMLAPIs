@@ -6,7 +6,7 @@ use rocket::serde::json::serde_json::{self, json, Value};
 use rocket_cache_response::CacheResponse;
 use scraper::{Html, Selector};
 use crate::{APIError, cached_json, steamapi, steamapi::get_user_info};
-use crate::cache::CacheItem;
+use crate::cache;
 use crate::api13::responses::*;
 
 use super::Api13State;
@@ -34,13 +34,8 @@ pub async fn count_1_3() -> Result<Value, APIError> {
 
 #[get("/mod/<modname>")]
 pub async fn mod_1_3(modname: &str, state: &State<Api13State>) -> Result<CacheResponse<Value>, APIError> {
-	let cache = {
-		let mod_cache = state.mod_cache.lock().unwrap();
-		mod_cache.get(modname.to_owned(), 3600).cloned()
-	};
-
-	let mod_info = match cache {
-		Some(cached_value) => cached_value.item,
+	let mod_info = match cache::lock_and_get(&state.mod_cache, modname.to_owned(), 3600) {
+		Some(cached_value) => cached_value,
 		None => {
 			let client = reqwest::Client::new();
 
@@ -68,14 +63,7 @@ pub async fn mod_1_3(modname: &str, state: &State<Api13State>) -> Result<CacheRe
 				Err(_) => None
 			};
 
-			// update cache value
-			let mut cache = state.mod_cache.lock().unwrap();
-			cache.insert(modname.to_owned(), CacheItem {
-				item: modinfo.clone(),
-				time_stamp: std::time::SystemTime::now()
-			});
-
-			modinfo
+			cache::lock_and_update(&state.mod_cache, modname.to_owned(), modinfo)
 		}
 	};
 
@@ -94,13 +82,8 @@ pub async fn author_1_3_str(steamname: &str, state: &State<Api13State>) -> Resul
 }
 
 async fn get_author_info(steamid: u64, state: &State<Api13State>) -> Result<CacheResponse<Value>, APIError> {
-	let cache = {
-		let mod_cache = state.author_cache.lock().unwrap();
-		mod_cache.get(steamid, 3600).cloned()
-	};
-
-	let author = match cache {
-		Some(cached_value) => cached_value.item,
+	let author = match cache::lock_and_get(&state.author_cache, steamid, 3600) {
+		Some(cached_value) => cached_value,
 		None => {
 			let steam_user = get_user_info(steamid, &state.steam_api_key).await?;
 
@@ -161,14 +144,7 @@ async fn get_author_info(steamid: u64, state: &State<Api13State>) -> Result<Cach
 				maintained_mods: maintained_mods_infos
 			};
 
-			// update cache value
-			let mut cache = state.author_cache.lock().unwrap();
-			cache.insert(steamid, CacheItem {
-				item: author.clone(),
-				time_stamp: std::time::SystemTime::now()
-			});
-
-			author
+			cache::lock_and_update(&state.author_cache, steamid, author)
 		}
 	};
 

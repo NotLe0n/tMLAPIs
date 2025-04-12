@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::time::{self, Duration};
+use std::sync::{Arc, Mutex};
 
 #[derive(Clone)]
 pub struct CacheItem<T> {
@@ -45,4 +46,22 @@ impl<K, C> CacheMap<K, C> where K: Eq+Hash {
     pub fn insert(&mut self, key: K, value: CacheItem<C>) {
         self.inner.insert(key, value);
     }
+}
+
+pub fn lock_and_get<K, V>(cache: &Arc<Mutex<CacheMap<K, V>>>, key: K, time: u64) -> Option<V> where K:Eq+Hash, V:Clone {
+    let locked_cache = cache.lock().unwrap();
+    match locked_cache.get(key, time).cloned() {
+        Some(i) => Some(i.item),
+        None => None,
+    }
+}
+
+pub fn lock_and_update<K, V>(cache: &Arc<Mutex<CacheMap<K, V>>>, key: K, value: V) -> V where K:Eq+Hash, V:Clone {
+    let mut locked_cache = cache.lock().unwrap();
+    locked_cache.insert(key, CacheItem {
+        item: value.clone(),
+        time_stamp: std::time::SystemTime::now(),
+    });
+
+    return value;
 }

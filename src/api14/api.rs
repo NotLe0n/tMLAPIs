@@ -5,8 +5,7 @@ use std::collections::HashMap;
 use rocket::State;
 use rocket::serde::json::serde_json::{self, Value};
 use rocket_cache_response::CacheResponse;
-use crate::{APIError, cached_json, steamapi};
-use crate::cache::CacheItem;
+use crate::{cache, cached_json, steamapi, APIError};
 use super::{responses::*, Api14State};
 
 #[get("/count")]
@@ -28,13 +27,8 @@ pub async fn author_1_4_str(steamname: &str, state: &State<Api14State>) -> Resul
 }
 
 async fn get_author_info(steamid: u64, state: &State<Api14State>) -> Result<CacheResponse<Value>, APIError> {
-	let cache = {
-		let mod_cache = state.author_cache.lock().unwrap();
-		mod_cache.get(steamid, 3600).cloned()
-	};
-
-	let author = match cache {
-		Some(cached_value) => cached_value.item,
+	let author = match cache::lock_and_get(&state.author_cache, steamid, 3600) {
+		Some(cached_value) => cached_value,
 		None => {
 			let steam_user = steamapi::get_user_info(steamid, &state.steam_api_key).await?;
 			let author_data = steamapi::get_user_mods(steamid, &state.steam_api_key).await?;
@@ -52,10 +46,9 @@ async fn get_author_info(steamid: u64, state: &State<Api14State>) -> Result<Cach
 				total_views += publishedfiledetail.views as u64;
 
 				// filter mod data and add to Vec
-				mods.push(
-					get_filtered_mod_info(&publishedfiledetail)
-				);
+				mods.push(get_filtered_mod_info(&publishedfiledetail));
 			}
+
 			let author = AuthorInfo {
 				steam_id: steamid,
 				steam_name: steam_user.personaname,
@@ -66,14 +59,7 @@ async fn get_author_info(steamid: u64, state: &State<Api14State>) -> Result<Cach
 				total_views,
 			};
 
-			// update cache value
-			let mut cache = state.author_cache.lock().unwrap();
-			cache.insert(steamid, CacheItem {
-				item: author.clone(),
-				time_stamp: std::time::SystemTime::now(),
-			});
-
-			author
+			cache::lock_and_update(&state.author_cache, steamid, author)
 		}
 	};
 
@@ -175,24 +161,13 @@ pub async fn mod_1_4_str(modname: &str, state: &State<Api14State>) -> Result<Cac
 }
 
 async fn get_mod_data(modid: u64, state: &State<Api14State>) -> Result<steamapi::PublishedFileDetails, APIError> {
-	let cache = {
-		let mod_cache = state.mod_cache.lock().unwrap();
-		mod_cache.get(modid, 3600).cloned()
-	};
-
-	return match cache {
-		Some(cached_value) => Ok(cached_value.item),
+	return match cache::lock_and_get(&state.mod_cache, modid, 3600) {
+		Some(cached_value) => Ok(cached_value),
 		None => {
 			let details = steamapi::get_mod_info(modid, &state.steam_api_key).await?;
 
 			// update cache value
-			let mut cache = state.mod_cache.lock().unwrap();
-			cache.insert(modid, CacheItem {
-				item: details.clone(),
-				time_stamp: std::time::SystemTime::now(),
-			});
-
-			Ok(details)
+			Ok(cache::lock_and_update(&state.mod_cache, modid, details))
 		}
 	}
 }
