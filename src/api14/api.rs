@@ -191,7 +191,6 @@ pub async fn list_1_4(state: &State<Api14State>) -> Result<CacheResponse<Value>,
 			let mut next_cursor = String::from("*");
 			loop {
 				let list = steamapi::get_mod_list(&client, &next_cursor, &state.steam_api_key).await?;
-				
 				if list.total == 0 || list.publishedfiledetails.is_none() {
 					break;
 				}
@@ -199,7 +198,7 @@ pub async fn list_1_4(state: &State<Api14State>) -> Result<CacheResponse<Value>,
 				let details = &list.publishedfiledetails.unwrap();
 
 				// add filtered mod info to vec
-				mods.extend(details.iter().map(get_filtered_mod_info).collect::<Vec<ModInfo>>());
+				mods.extend(details.iter().map(get_filtered_mod_info));
 
 				next_cursor = list.next_cursor.unwrap();
 			}

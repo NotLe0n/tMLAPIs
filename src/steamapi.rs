@@ -1,5 +1,4 @@
 extern crate reqwest;
-use log::debug;
 use rocket::serde::{Deserialize, DeserializeOwned, Serialize};
 use rocket::serde::json::serde_json::Value;
 use crate::APIError;
@@ -178,7 +177,7 @@ pub const APP_ID: &str = "1281930";
 // does a get reqwests on the specified URL and Returns a Json<String> if successful or a Status if it errored
 async fn get_steam<T: DeserializeOwned>(url: &str) -> Result<T, APIError> {
 	let res = reqwest::get(format!("{STEAM_API_URL}{url}")).await?;
-	debug!("Requesting SteamAPI at: {STEAM_API_URL}{url}");
+	log::debug!("Requesting SteamAPI at: {STEAM_API_URL}{url}");
 	Ok(res.json::<Response<T>>().await?.response)
 }
 
@@ -215,6 +214,7 @@ pub async fn modname_to_modid(modname: &str, api_key: &str) -> Result<u64, APIEr
 pub async fn get_mod_list(client: &reqwest::Client, cursor: &str, api_key: &str) -> Result<ModListResponse, APIError> {
 	let url = format!("{STEAM_API_URL}/IPublishedFileService/QueryFiles/v1/?key={}&appid={APP_ID}&cursor={}&numperpage=10000&cache_max_age_seconds=0&return_details=true&return_kv_tags=true&return_children=true&return_tags=true&return_vote_data=true",
 						api_key, urlencoding::encode(cursor));
+	log::debug!("Requesting SteamAPI at: {url}");
 	let res = client.get(url).send().await?;
 	Ok(res.json::<Response<ModListResponse>>().await?.response)
 }
