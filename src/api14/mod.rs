@@ -2,10 +2,9 @@ pub mod api;
 mod responses;
 
 use std::sync::{Mutex, Arc};
-
+use responses::{AuthorInfo, ModInfo};
 use crate::{cache::{CacheMap, CacheItem}, steamapi};
-
-use self::responses::*;
+use rocket::response::content::RawHtml;
 
 pub struct Api14State {
 	pub steam_api_key: String,
@@ -23,4 +22,47 @@ impl Api14State {
 			mod_list_cache: Arc::new(Mutex::new(CacheItem::new()))
         }
     }
+}
+
+#[get("/")]
+fn index_1_4() -> RawHtml<&'static str> {
+	RawHtml(r#"
+        <h1>1.4 Index (<a href="..">Go Back</a>)</h1>
+		<a href="1.4/count">count</a><br>
+		<a href="1.4/author">author</a><br>
+		<a href="1.4/mod">mod</a><br>
+		<a href="1.4/list">list</a><br>
+	"#)
+}
+
+#[get("/mod")]
+fn index_mod_1_4() -> RawHtml<&'static str> {
+	RawHtml(r#"
+		<form action="javascript: window.location.href += '/' + document.getElementById('input').value">
+            <h1>Mod info (<a href="https://github.com/NotLe0n/tMLAPIs/wiki/1.4-mod">Docs</a>)</h1> 
+
+			<label for="input">Mod ID or name:</label>
+			<input type="text" id="input">
+			<input type="submit" value="Go" />
+		</form>
+	"#)
+}
+
+#[get("/author")]
+fn index_author_1_4() -> RawHtml<&'static str> {
+	RawHtml(r#"
+		<h1>Author info (<a href="https://github.com/NotLe0n/tMLAPIs/wiki/1.4-author">Docs</a>)</h1> 
+
+		<form action="javascript: window.location.href += '/' + document.getElementById('input').value">
+			<label for="input">SteamID64 or vanity name:</label>
+			<input type="text" id="input">
+			<input type="submit" value="Go" />
+		</form>
+	"#)
+}
+
+use api::*;
+
+pub fn get_routes() -> Vec<rocket::Route> {
+    routes![index_1_4, count_1_4, index_author_1_4, author_1_4, author_1_4_str, index_mod_1_4, mod_1_4, mod_1_4_str, list_1_4]
 }
