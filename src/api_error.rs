@@ -40,7 +40,7 @@ impl std::fmt::Display for APIError {
 
 impl From<reqwest::Error> for APIError {
     fn from(e: reqwest::Error) -> Self {
-		APIError::ReqwestError(e.to_string())
+		APIError::ReqwestError(e.without_url().to_string())
     }
 }
 

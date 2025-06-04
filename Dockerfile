@@ -2,14 +2,16 @@ FROM rust:latest AS builder
 
 WORKDIR /app
 
-COPY Cargo.toml Cargo.lock ./
+COPY Cargo.toml Cargo.lock Rocket.toml ./
 COPY . .
 RUN cargo build --release
 
 FROM debian:bookworm-slim
 
-# Install dependencies for vendored OpenSSL build
-RUN apt-get update && apt-get install -y pkg-config libssl-dev
+RUN apt-get update && apt-get install -y \
+    libssl3 \
+    ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
 
 # Create a non-root user
 RUN useradd -m appuser
