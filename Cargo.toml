@@ -1,6 +1,6 @@
 [package]
 name = "tmlapis"
-version = "7.0.2"
+version = "7.0.3"
 edition = "2024"
 authors = ["NotLe0n"]
 description = "a series of tmodloader apis to help make dynamic websites and tools"
@@ -17,6 +17,7 @@ scraper = "0.18.1"
 rocket-cache-response = "0.6.2"
 urlencoding = "2.1.2"
 log = "0.4"
+openssl = { version = "0.10", features = ["vendored"] }
 
 [profile.release]
 opt-level = 'z'     # Optimize for size
