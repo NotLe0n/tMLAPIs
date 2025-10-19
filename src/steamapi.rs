@@ -1,4 +1,6 @@
 extern crate reqwest;
+use std::collections::HashMap;
+
 use rocket::serde::{Deserialize, DeserializeOwned, Serialize};
 use rocket::serde::json::serde_json::Value;
 use crate::APIError;
@@ -60,58 +62,64 @@ pub struct PublishedFileID {
 #[serde(crate = "rocket::serde")]
 #[allow(dead_code)]
 pub struct PublishedFileDetails {
-	pub app_name: String,
-	pub ban_reason: String,
-	pub ban_text_check_result: u32,
-	pub banned: bool,
-	pub banner: String,
-	pub can_be_deleted: bool,
-	pub can_subscribe: bool,
-	pub consumer_appid: u32,
-	pub consumer_shortcutid: u32,
-	pub creator: String,
-	pub creator_appid: u32,
-	pub favorited: u32,
-	pub file_size: String,
-	pub file_type: u32,
+	pub app_name: Option<String>,
+	pub ban_reason: Option<String>,
+	pub ban_text_check_result: Option<u32>,
+	pub banned: Option<bool>,
+	pub banner: Option<String>,
+	pub can_be_deleted: Option<bool>,
+	pub can_subscribe: Option<bool>,
+	pub consumer_appid: Option<u32>,
+	pub consumer_shortcutid: Option<u32>,
+	pub creator: Option<String>,
+	pub creator_appid: Option<u32>,
+	pub favorited: Option<u32>,
+	pub file_size: Option<String>,
+	pub file_type: Option<u32>,
 	pub file_description: Option<String>,
-	pub filename: String,
-	pub flags: u32,
-	pub followers: u32,
-	pub hcontent_file: String,
-	pub hcontent_preview: String,
+	pub filename: Option<String>,
+	pub flags: Option<u32>,
+	pub followers: Option<u32>,
+	pub hcontent_file: Option<String>,
+	pub hcontent_preview: Option<String>,
 	pub kvtags: Option<Vec<KVTag>>,
-	pub language: u32,
-	pub lifetime_favorited: u32,
-	pub lifetime_followers: u32,
-	pub lifetime_playtime: String,
-	pub lifetime_playtime_sessions: String,
-	pub lifetime_subscriptions: u32,
+	pub language: Option<u32>,
+	pub lifetime_favorited: Option<u32>,
+	pub lifetime_followers: Option<u32>,
+	pub lifetime_playtime: Option<String>,
+	pub lifetime_playtime_sessions: Option<String>,
+	pub lifetime_subscriptions: Option<u32>,
 	pub maybe_inappropriate_sex: Option<bool>,
 	pub maybe_inappropriate_violence: Option<bool>,
-	pub num_children: u32,
+	pub num_children: Option<u32>,
 	pub num_comments_developer: Option<u32>,
-	pub num_comments_public: u32,
-	pub num_reports: u32,
-	pub preview_file_size: String,
-	pub preview_url: String,
-	pub publishedfileid: String,
-	pub result: u32,
-	pub revision: u32,
-	pub revision_change_number: String,
-	pub show_subscribe_all: bool,
-	pub subscriptions: u32,
+	pub num_comments_public: Option<u32>,
+	pub num_reports: Option<u32>,
+	pub preview_file_size: Option<String>,
+	pub preview_url: Option<String>,
+	pub publishedfileid: Option<String>,
+	pub result: Option<u32>,
+	pub revision: Option<u32>,
+	pub revision_change_number: Option<String>,
+	pub show_subscribe_all: Option<bool>,
+	pub subscriptions: Option<u32>,
 	pub tags: Option<Vec<ModTag>>,
-	pub time_created: u64,
-	pub time_updated: u64,
-	pub title: String,
-	pub url: String,
-	pub views: u64,
-	pub visibility: u32,
+	pub time_created: Option<u64>,
+	pub time_updated: Option<u64>,
+	pub title: Option<String>,
+	pub url: Option<String>,
+	pub views: Option<u64>,
+	pub visibility: Option<u32>,
 	pub vote_data: Option<VoteData>,
-	pub workshop_accepted: bool,
-	pub workshop_file: bool,
-	pub children: Option<Vec<Child>>
+	pub workshop_accepted: Option<bool>,
+	pub workshop_file: Option<bool>,
+	pub children: Option<Vec<Child>>,
+	// 1: NudityOrSexualContent, 2: FrequentViolenceOrGore, 3: AdultOnlySexualContent, 4: GratuitousSexualContent, 5: AnyMatureContent
+	pub content_descriptorids: Option<Vec<u32>>, 
+	pub available_revisions: Option<Vec<u32>>,
+	
+	#[serde(flatten)]
+    extra: HashMap<String, Value>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -144,6 +152,17 @@ pub struct ModTag {
 	pub display_name: String
 }
 
+#[derive(Serialize, Debug)]
+#[serde(crate = "rocket::serde")]
+#[allow(dead_code)]
+pub enum ContentDescriptor {
+	NudityOrSexualContent = 1,
+	FrequentViolenceOrGore,
+	AdultOnlySexualContent,
+	GratuitousSexualContent,
+	AnyMatureContent
+}
+
 #[derive(Deserialize, Debug)]
 #[serde(crate = "rocket::serde")]
 pub struct SteamUserInfoResponse {
@@ -168,7 +187,15 @@ pub struct SteamUserInfo {
 	pub primaryclanid: String,
 	pub timecreated: u64,
 	pub personastateflags: u32,
-	pub loccountrycode: Option<String>
+	pub loccountrycode: Option<String>,
+}
+
+fn check_missing_fields(files: &Vec<PublishedFileDetails>) {
+	if files.iter().any(|f| !f.extra.is_empty()) {
+		for f in files.iter().filter(|f| !f.extra.is_empty()) {
+			log::warn!("mod[{}] missing fields: {:?}", f.publishedfileid.clone().unwrap(), f.extra);
+		}
+	}
 }
 
 const STEAM_API_URL: &str = "https://api.steampowered.com";
@@ -188,21 +215,38 @@ pub async fn get_mod_count(api_key: &str) -> Result<CountResponse, APIError> {
 
 pub async fn get_user_mods(steamid: u64, api_key: &str) -> Result<ModListResponse, APIError> {
 	let url = format!("/IPublishedFileService/GetUserFiles/v1/?key={}&appid={APP_ID}&steamid={}&numperpage=100", api_key, steamid);
-	Ok(get_steam::<ModListResponse>(&url).await?)
+	let res = get_steam::<ModListResponse>(&url).await?;
+
+	if let Some(files) = res.publishedfiledetails.as_ref() {
+		check_missing_fields(files);
+	}
+	
+	Ok(res)
 }
 
 pub async fn get_mod_info(modid: u64 , api_key: &str) -> Result<PublishedFileDetails, APIError> {
-	let url = format!("/IPublishedFileService/GetDetails/v1/?key={}&publishedfileids%5B0%5D={}&includekvtags=true&includechildren=true&includetags=true&includevotes=true", api_key, modid);
+	let url = format!("/IPublishedFileService/GetDetails/v1/?key={api_key}&appid={APP_ID}\
+		&publishedfileids%5B0%5D={modid}\
+		&includekvtags=true\
+		&includechildren=true\
+		&includetags=true\
+		&includevotes=true"
+	);
 	let res = get_steam::<ModResponse>(&url).await?;
 	
 	match res.publishedfiledetails[0].clone() {
-		SteamResult::Ok(pfd) => Ok(pfd),
+		SteamResult::Ok(pfd) => {
+			if !pfd.extra.is_empty() {
+				log::warn!("Unknown fields at mod[{}]: {:?}", pfd.publishedfileid.clone().unwrap(), pfd.extra.keys());
+			}
+			Ok(pfd)
+		},
 		SteamResult::Err(_) => Err(APIError::InvalidModID(modid))
 	}
 }
 
 pub async fn modname_to_modid(modname: &str, api_key: &str) -> Result<u64, APIError> {
-	let url = format!("/IPublishedFileService/QueryFiles/v1/?key={}&input_json=%7B%22appid%22:{APP_ID},%20%22required_kv_tags%22:[%7B%22key%22:%22name%22,%22value%22:%22{}%22%7D]%7D", api_key, modname);
+	let url = format!(r#"/IPublishedFileService/QueryFiles/v1/?key={api_key}&appid={APP_ID}&input_json={{"required_kv_tags":[{{"key":"name","value":"{modname}"}}]}}"#);
 	let res = get_steam::<ModIDListResponse>(&url).await?;
 	
 	match res.publishedfiledetails {
@@ -211,12 +255,28 @@ pub async fn modname_to_modid(modname: &str, api_key: &str) -> Result<u64, APIEr
 	}
 }
 
+// Idea: filter by tag: &requiredtags[0]=Both&requiredtags[1]=Client&requiredtags[2]=Server&requiredtags[3]=NoSync&match_all_tags=false
 pub async fn get_mod_list(client: &reqwest::Client, cursor: &str, api_key: &str) -> Result<ModListResponse, APIError> {
-	let url = format!("{STEAM_API_URL}/IPublishedFileService/QueryFiles/v1/?key={}&appid={APP_ID}&cursor={}&numperpage=10000&cache_max_age_seconds=0&return_details=true&return_kv_tags=true&return_children=true&return_tags=true&return_vote_data=true",
-						api_key, urlencoding::encode(cursor));
+	let c = urlencoding::encode(cursor);
+	let url = format!("{STEAM_API_URL}/IPublishedFileService/QueryFiles/v1/?key={api_key}&appid={APP_ID}&cursor={c}\
+		&numperpage=10000\
+		&cache_max_age_seconds=0\
+		&return_details=true\
+		&return_kv_tags=true\
+		&return_children=true\
+		&return_tags=true\
+		&return_vote_data=true"
+	);
+
 	log::debug!("Requesting SteamAPI at: {url}");
 	let res = client.get(url).send().await?;
-	Ok(res.json::<Response<ModListResponse>>().await?.response)
+    let mod_list = res.json::<Response<ModListResponse>>().await?.response;
+
+	if let Some(files) = mod_list.publishedfiledetails.as_ref() {
+    	check_missing_fields(files);
+	}
+
+	Ok(mod_list)
 }
 
 pub async fn steamname_to_steamid(steamname: &str, api_key: &str) -> Result<u64, APIError> {

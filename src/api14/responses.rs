@@ -20,10 +20,11 @@ pub struct ModVersion {
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(crate = "rocket::serde")]
 pub struct ModSocials {
-	pub youtube: String,
-	pub twitter: String,
-	pub reddit: String,
-	pub facebook: String
+	pub youtube: Option<String>,
+	pub twitter: Option<String>,
+	pub reddit: Option<String>,
+	pub facebook: Option<String>,
+	pub sketchfab: Option<String>
 }
 
 #[derive(Serialize, Deserialize, Clone)]

@@ -40,18 +40,21 @@ impl std::fmt::Display for APIError {
 
 impl From<reqwest::Error> for APIError {
     fn from(e: reqwest::Error) -> Self {
+		log::warn!("{}", e.to_string());
 		APIError::ReqwestError(e.without_url().to_string())
     }
 }
 
 impl From<rocket::serde::json::serde_json::Error> for APIError {
     fn from(e: rocket::serde::json::serde_json::Error) -> Self {
+		log::warn!("{}", e.to_string());
 		APIError::JSONError(e.to_string())
     }
 }
 
 impl From<scraper::error::SelectorErrorKind<'_>> for APIError {
 	fn from(e: scraper::error::SelectorErrorKind) -> Self {
+		log::warn!("{}", e.to_string());
 		APIError::ScrapeError(e.to_string())
 	}
 }

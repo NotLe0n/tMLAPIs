@@ -1,7 +1,5 @@
 extern crate reqwest;
 
-use std::collections::HashMap;
-
 use rocket::State;
 use rocket::serde::json::serde_json::{self, Value};
 use rocket_cache_response::CacheResponse;
@@ -41,9 +39,9 @@ async fn get_author_info(steamid: u64, state: &State<Api14State>) -> Result<Cach
 			// go through each mod
 			for publishedfiledetail in author_data.publishedfiledetails.unwrap_or_default() {
 				// increment total counts
-				total_downloads += publishedfiledetail.subscriptions as u64;
-				total_favorites += publishedfiledetail.favorited as u64;
-				total_views += publishedfiledetail.views as u64;
+				total_downloads += publishedfiledetail.subscriptions.unwrap_or_default() as u64;
+				total_favorites += publishedfiledetail.favorited.unwrap_or_default() as u64;
+				total_views += publishedfiledetail.views.unwrap_or_default() as u64;
 
 				// filter mod data and add to Vec
 				mods.push(get_filtered_mod_info(&publishedfiledetail));
@@ -68,24 +66,46 @@ async fn get_author_info(steamid: u64, state: &State<Api14State>) -> Result<Cach
 
 fn get_filtered_mod_info(publishedfiledetail: &steamapi::PublishedFileDetails) -> ModInfo {
 	let publishedfiledetail = publishedfiledetail.clone();
+	if publishedfiledetail.result.unwrap_or_default() > 1 {
+		log::warn!("Unexpected multiple result at mod {}", publishedfiledetail.publishedfileid.clone().unwrap_or_default())
+	}
 
-	// tml specific data
-	let kvtags = publishedfiledetail.kvtags.unwrap_or_default();
+	// get data from kvtags (tml specific data) field
+	let mut internal_name = String::new();
+	let mut author = String::new();
+	let mut modside = String::new();
+	let mut homepage = String::new();
+	let mut deprecated_version_mod = String::new();
+	let mut deprecated_version_tmodloader = String::new();
+	let mut version_summary = String::new();
+	let mut mod_references = String::new();
+	let mut youtube: Option<String> = None;
+	let mut twitter: Option<String> = None;
+	let mut reddit: Option<String> = None;
+	let mut facebook: Option<String> = None;
+	let mut sketchfab: Option<String> = None;
 
-	// get data from kvtags field
-	let kv_map: HashMap<String, String> = kvtags.iter().map(|x| (x.key.clone(), x.value.clone())).collect();
-	let internal_name = kv_map.get("name").cloned().unwrap_or_default();
-	let author = kv_map.get("Author").cloned().unwrap_or_default();
-	let modside = kv_map.get("modside").cloned().unwrap_or_default();
-	let homepage = kv_map.get("homepage").cloned().unwrap_or_default();
-	let deprecated_version_mod = kv_map.get("version").cloned().unwrap_or_default();
-	let deprecated_version_tmodloader = kv_map.get("modloaderversion").cloned().unwrap_or_default();
-	let version_summary = kv_map.get("versionsummary").cloned().unwrap_or_default();
-	let mod_references = kv_map.get("modreferences").cloned().unwrap_or_default();
-	let youtube = kv_map.get("youtube").cloned().unwrap_or_default();
-	let twitter = kv_map.get("twitter").cloned().unwrap_or_default();
-	let reddit = kv_map.get("reddit").cloned().unwrap_or_default();
-	let facebook = kv_map.get("facebook").cloned().unwrap_or_default();
+	if let Some(kvtags) = publishedfiledetail.kvtags {
+		// `into_iter()` moves the KVTag, so we can move its `String`s without cloning
+		for steamapi::KVTag { key, value } in kvtags.into_iter() {
+			match key.as_str() {
+				"name"              => internal_name = value,
+				"Author"            => author = value,
+				"modside"           => modside = value,
+				"homepage"          => homepage = value,
+				"version"           => deprecated_version_mod = value,
+				"modloaderversion"  => deprecated_version_tmodloader = value,
+				"versionsummary"    => version_summary = value,
+				"modreferences"     => mod_references = value,
+				"youtube"           => youtube = Some(value),
+				"twitter"           => twitter = Some(value),
+				"reddit"            => reddit = Some(value),
+				"facebook"          => facebook = Some(value),
+				"sketchfab" 		=> sketchfab = Some(value),
+				tag => log::warn!("missing KV Tag: {tag}")
+			}
+		}
+	}
 
 	// the kvTags 'version' and 'modloaderversion' are deprecated
 	let versions = if version_summary.is_empty() {
@@ -104,42 +124,46 @@ fn get_filtered_mod_info(publishedfiledetail: &steamapi::PublishedFileDetails) -
 	};
 
 	let socials: Option<ModSocials> = 
-		if youtube != "" && twitter != "" && reddit != "" && facebook != "" {
+		if youtube == None && twitter == None && reddit == None && facebook == None && sketchfab == None {
+			None
+		} else { 
 			Some(ModSocials { 
 				youtube,
 				twitter,
 				reddit,
-				facebook, 
+				facebook,
+				sketchfab,
 			})
-		} else { None };
+		 };
 
 	// construct ModInfo struct
 	return ModInfo{
-		display_name: publishedfiledetail.title,
+		display_name: publishedfiledetail.title.unwrap_or_default(),
 		internal_name,
-		mod_id: publishedfiledetail.publishedfileid,
+		mod_id: publishedfiledetail.publishedfileid.unwrap_or_default(),
 		author,
-		author_id: publishedfiledetail.creator,
+		author_id: publishedfiledetail.creator.unwrap_or_default(),
 		modside,
 		homepage,
 		versions,
 		mod_references,
-		num_versions: publishedfiledetail.revision_change_number.parse().unwrap_or_default(),
+		num_versions: publishedfiledetail.revision_change_number.unwrap_or_default().parse().unwrap_or_default(),
 		tags: publishedfiledetail.tags,
-		time_created: publishedfiledetail.time_created,
-		time_updated: publishedfiledetail.time_updated,
-		workshop_icon_url: publishedfiledetail.preview_url,
+		time_created: publishedfiledetail.time_created.unwrap_or_default(),
+		time_updated: publishedfiledetail.time_updated.unwrap_or_default(),
+		workshop_icon_url: publishedfiledetail.preview_url.unwrap_or_default(),
 		children: publishedfiledetail.children,
 		description: publishedfiledetail.file_description,
-		downloads_total: publishedfiledetail.subscriptions,
-		favorited: publishedfiledetail.favorited,
-		views: publishedfiledetail.views,
-		playtime: publishedfiledetail.lifetime_playtime,
-		followers: publishedfiledetail.followers,
+		downloads_total: publishedfiledetail.subscriptions.unwrap_or_default(),
+		favorited: publishedfiledetail.favorited.unwrap_or_default(),
+		views: publishedfiledetail.views.unwrap_or_default(),
+		playtime: publishedfiledetail.lifetime_playtime.unwrap_or_default(),
+		followers: publishedfiledetail.followers.unwrap_or_default(),
 		vote_data: publishedfiledetail.vote_data,
-		num_comments: publishedfiledetail.num_comments_public,
+		num_comments: publishedfiledetail.num_comments_public.unwrap_or_default(),
 		socials,
 	}
+	
 }
 
 

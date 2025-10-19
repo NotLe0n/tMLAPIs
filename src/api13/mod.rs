@@ -27,12 +27,14 @@ impl Api13State {
 #[get("/")]
 fn index_1_3() -> RawHtml<&'static str> {
 	RawHtml(r#"
-        <h1>1.3 Index (<a href="..">Go Back</a>)</h1>
+        <h1>1.3 Index</h1>
 		<a href="1.3/count">count</a><br>
 		<a href="1.3/author">author</a><br>
 		<a href="1.3/mod">mod</a><br>
 		<a href="1.3/list">list</a><br>
 		<a href="1.3/history">history</a><br>
+		<br>
+		<a href="..">go back</a><br>
 	"#)
 }
 
@@ -46,6 +48,8 @@ fn index_mod_1_3() -> RawHtml<&'static str> {
 			<input type="text" id="input">
 			<input type="submit" value="Go" />
 		</form>
+
+		<a href="..">go back</a>
 	"#)
 }
 
@@ -59,6 +63,8 @@ fn index_author_1_3() -> RawHtml<&'static str> {
 			<input type="text" id="input">
 			<input type="submit" value="Go" />
 		</form>
+
+		<a href="..">go back</a>
 	"#)
 }
 
@@ -72,6 +78,8 @@ fn index_history_1_3() -> RawHtml<&'static str> {
 			<input type="text" id="input">
 			<input type="submit" value="Go" />
 		</form>
+
+		<a href="..">go back</a>
 	"#)
 }
 
