@@ -54,6 +54,8 @@ fn index_img() -> RawHtml<&'static str>{
 			<input type="number" id="input" name="quantity" min="0" max="5042">
 			<input type="submit" value="Go" />
 		</form>
+
+		<a href="..">go back</a><br>
 	"#)
 }
 
