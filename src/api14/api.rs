@@ -3,7 +3,7 @@ extern crate reqwest;
 use rocket::State;
 use rocket::serde::json::serde_json::{self, Value};
 use rocket_cache_response::CacheResponse;
-use crate::{cache, cached_json, steamapi, APIError};
+use crate::{APIError, cache, cached_json, steamapi};
 use super::{responses::*, Api14State};
 
 #[get("/count")]
@@ -196,6 +196,28 @@ async fn get_mod_data(modid: u64, state: &State<Api14State>) -> Result<steamapi:
 	}
 }
 
+pub async fn get_filtered_mod_list(steam_api_key: &str) -> Result<Vec<ModInfo>, APIError> {
+	let client = reqwest::Client::new();
+
+	let mut mods: Vec<ModInfo> = Vec::new();
+	let mut next_cursor = String::from("*");
+	loop {
+		let list = steamapi::get_mod_list(&client, &next_cursor, steam_api_key).await?;
+		if list.total == 0 || list.publishedfiledetails.is_none() {
+			break;
+		}
+
+		let details = &list.publishedfiledetails.unwrap();
+
+		// add filtered mod info to vec
+		mods.extend(details.iter().map(get_filtered_mod_info));
+
+		next_cursor = list.next_cursor.unwrap();
+	}
+
+	Ok(mods)
+}
+
 #[get("/list")]
 pub async fn list_1_4(state: &State<Api14State>) -> Result<CacheResponse<Value>, APIError> {
 	let cache = {
@@ -209,23 +231,7 @@ pub async fn list_1_4(state: &State<Api14State>) -> Result<CacheResponse<Value>,
 	return match cache {
 		Some(cached_value) => cached_json!(cached_value, 7200, false),
 		None => {
-			let client = reqwest::Client::new();
-
-			let mut mods: Vec<ModInfo> = Vec::new();
-			let mut next_cursor = String::from("*");
-			loop {
-				let list = steamapi::get_mod_list(&client, &next_cursor, &state.steam_api_key).await?;
-				if list.total == 0 || list.publishedfiledetails.is_none() {
-					break;
-				}
-
-				let details = &list.publishedfiledetails.unwrap();
-
-				// add filtered mod info to vec
-				mods.extend(details.iter().map(get_filtered_mod_info));
-
-				next_cursor = list.next_cursor.unwrap();
-			}
+			let mods = get_filtered_mod_list(&state.steam_api_key).await?;
 
 			// update cache value
 			let mut cache = state.mod_list_cache.lock().unwrap();
