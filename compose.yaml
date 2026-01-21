@@ -12,7 +12,7 @@ services:
     build: .
     container_name: tmlapis
     env_file:
-      - .env
+      - tmlapis.env
     ports:
       - "8000:8000"
     depends_on:

@@ -69,11 +69,10 @@ fn index_img() -> RawHtml<&'static str>{
 #[rocket::main]
 async fn main() -> Result<(), rocket::Error>{
 	let steam_api_key = std::env::var("STEAM_API_KEY").expect("the 'STEAM_API_KEY' environment variable could not be read");
-	let api13_state = Api13State::init(steam_api_key.clone());
-	let api14_state = Api14State::init(steam_api_key.clone());
-	
-
 	let pool = Arc::new(db::create_pool().await);
+	let api13_state = Api13State::init(steam_api_key.clone());
+	let api14_state = Api14State::init(steam_api_key.clone(), Arc::clone(&pool));
+
 	let key = Arc::new(steam_api_key);
 	let mut scheduler = AsyncScheduler::with_tz(Utc);
 
@@ -91,7 +90,7 @@ async fn main() -> Result<(), rocket::Error>{
 	tokio::spawn(async move {
 		loop {
 			scheduler.run_pending().await;
-			tokio::time::sleep(Duration::from_millis(100)).await;
+			tokio::time::sleep(Duration::from_secs(60)).await;
 		}
 	});
 

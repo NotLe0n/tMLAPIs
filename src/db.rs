@@ -20,6 +20,7 @@ pub async fn update_mod_history(db: &PgPool, steam_api_key: &str) -> Result<(), 
 
     let capacity = mods.len();
     let mut mod_ids = Vec::with_capacity(capacity);
+    let mut author_ids = Vec::with_capacity(capacity);
     let mut downloads = Vec::with_capacity(capacity);
     let mut views = Vec::with_capacity(capacity);
     let mut followers = Vec::with_capacity(capacity);
@@ -34,6 +35,7 @@ pub async fn update_mod_history(db: &PgPool, steam_api_key: &str) -> Result<(), 
 
     for m in &mods {
         mod_ids.push(m.mod_id.clone());
+        author_ids.push(m.author_id.clone());
         downloads.push(m.downloads_total as i32);
         views.push(m.views as i64);
         followers.push(m.followers as i32);
@@ -53,6 +55,7 @@ pub async fn update_mod_history(db: &PgPool, steam_api_key: &str) -> Result<(), 
         r#"
         INSERT INTO mod_history (
             mod_id, 
+            author_id,
             date, 
             downloads_total,
             views,
@@ -68,21 +71,23 @@ pub async fn update_mod_history(db: &PgPool, steam_api_key: &str) -> Result<(), 
         )
         SELECT * FROM UNNEST(
             $1::text[], 
-            $2::date[], 
-            $3::int[], 
-            $4::bigint[], 
-            $5::int[],
+            $2::text[],
+            $3::date[], 
+            $4::int[], 
+            $5::bigint[], 
             $6::int[],
             $7::int[],
             $8::int[],
             $9::int[],
-            $10::int[],
-            $11::bigint[],
+            $10::float8[],
+            $11::int[],
             $12::bigint[],
-            $13::text[]
+            $13::bigint[],
+            $14::text[]
         )
         "#,
         &mod_ids,
+        &author_ids,
         &dates,
         &downloads,
         &views,

@@ -4,6 +4,7 @@ CREATE EXTENSION IF NOT EXISTS timescaledb;
 -- Daily stats (time-series)
 CREATE TABLE mod_history (
     mod_id TEXT,
+    author_id TEXT,
     date DATE NOT NULL,
     downloads_total INTEGER,
     views BIGINT,
