@@ -17,11 +17,15 @@ Or you can use the API using the mirror: https://tmlapis.le0n.dev/
 
 ### Running
 **Bare metal:**
+Prerequisites: A running postgres environment with the DATABASE_URL env set.
+
 1. Clone the repository
 2. Set the STEAM_API_KEY environment variable to your Steam API key. Go [here](https://steamcommunity.com/dev/apikey) to get one.
 3. Run with `cargo run --release`
 
 **Docker:**
+Prerequisites: A running postgres environment with the DATABASE_URL env set.
+
 1. Clone the repository
 2. Build the image: `docker build -t tmlapis .`
 3. Run the image with the STEAM_API_KEY environment variable included:
@@ -31,6 +35,35 @@ docker run --name tmlapis \
 	-dp 127.0.0.1:8000:8000 \
 	tmlapis
 ```
+
+**Docker compose**
+1. Create compose.yaml:
+
+	```yaml
+	services:
+		db:
+			image: timescale/timescaledb:latest-pg15
+			container_name: modinfo-db
+			ports:
+				- "5432:5432"
+			env_file:
+				- db.env
+			volumes:
+				- db_data:/var/lib/postgresql/data
+		tmlapis:
+			build: .
+			container_name: tmlapis
+			env_file:
+				- tmlapis.env
+			ports:
+				- "8000:8000"
+			depends_on:
+				- db
+	volumes:
+		db_data:
+	```
+
+2. docker compose up
 
 ## Documentation
 For api documentation, see the [wiki](https://github.com/NotLe0n/tMLAPIs/wiki) page.

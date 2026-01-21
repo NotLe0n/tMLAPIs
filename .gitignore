@@ -3,3 +3,4 @@
 Rocket.toml
 *.env
 *.log
+compose.yaml
