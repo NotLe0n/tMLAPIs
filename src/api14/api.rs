@@ -1,9 +1,12 @@
 extern crate reqwest;
 
+use std::collections::{HashMap, HashSet};
+
 use rocket::State;
 use rocket::serde::json::serde_json::{self, Value};
 use rocket_cache_response::CacheResponse;
-use crate::{cache, cached_json, steamapi, APIError};
+use sqlx::PgPool;
+use crate::{APIError, cache, cached_json, steamapi};
 use super::{responses::*, Api14State};
 
 #[get("/count")]
@@ -196,11 +199,33 @@ async fn get_mod_data(modid: u64, state: &State<Api14State>) -> Result<steamapi:
 	}
 }
 
+pub async fn get_filtered_mod_list(steam_api_key: &str) -> Result<Vec<ModInfo>, APIError> {
+	let client = reqwest::Client::new();
+
+	let mut mods: Vec<ModInfo> = Vec::new();
+	let mut next_cursor = String::from("*");
+	loop {
+		let list = steamapi::get_mod_list(&client, &next_cursor, steam_api_key).await?;
+		if list.total == 0 || list.publishedfiledetails.is_none() {
+			break;
+		}
+
+		let details = &list.publishedfiledetails.unwrap();
+
+		// add filtered mod info to vec
+		mods.extend(details.iter().map(get_filtered_mod_info));
+
+		next_cursor = list.next_cursor.unwrap();
+	}
+
+	Ok(mods)
+}
+
 #[get("/list")]
 pub async fn list_1_4(state: &State<Api14State>) -> Result<CacheResponse<Value>, APIError> {
 	let cache = {
 		let mod_cache = state.mod_list_cache.lock().unwrap();
-		match mod_cache.expired(3600) {
+		match mod_cache.expired(7200) {
 			true => Some(mod_cache.item.clone()),
 			false => None
 		}
@@ -209,23 +234,7 @@ pub async fn list_1_4(state: &State<Api14State>) -> Result<CacheResponse<Value>,
 	return match cache {
 		Some(cached_value) => cached_json!(cached_value, 7200, false),
 		None => {
-			let client = reqwest::Client::new();
-
-			let mut mods: Vec<ModInfo> = Vec::new();
-			let mut next_cursor = String::from("*");
-			loop {
-				let list = steamapi::get_mod_list(&client, &next_cursor, &state.steam_api_key).await?;
-				if list.total == 0 || list.publishedfiledetails.is_none() {
-					break;
-				}
-
-				let details = &list.publishedfiledetails.unwrap();
-
-				// add filtered mod info to vec
-				mods.extend(details.iter().map(get_filtered_mod_info));
-
-				next_cursor = list.next_cursor.unwrap();
-			}
+			let mods = get_filtered_mod_list(&state.steam_api_key).await?;
 
 			// update cache value
 			let mut cache = state.mod_list_cache.lock().unwrap();
@@ -235,4 +244,212 @@ pub async fn list_1_4(state: &State<Api14State>) -> Result<CacheResponse<Value>,
 			cached_json!(mods, 7200, false)
 		}
 	};
+}
+
+pub async fn get_author_list(steam_api_key: &str) -> Result<HashMap<String, AuthorListItem>, APIError> {
+	let client = reqwest::Client::new();
+
+	let mut authors: HashMap<String, AuthorListItem> = HashMap::new();
+	let mut next_cursor = String::from("*");
+	loop {
+		let list = steamapi::get_mod_list(&client, &next_cursor, steam_api_key).await?;
+		if list.total == 0 || list.publishedfiledetails.is_none() {
+			break;
+		}
+
+		let details = &list.publishedfiledetails.unwrap();
+
+		for detail in details {
+			let mod_info = get_filtered_mod_info(&detail);
+
+			let detail = detail.clone();
+
+			let mut author = String::new();
+			if let Some(kvtags) = detail.kvtags {
+				for steamapi::KVTag { key, value } in kvtags.into_iter() {
+					match key.as_str() {
+						"Author" => author = value,
+						_ => ()
+					}
+				}
+			}
+
+			let author_id = detail.creator.unwrap_or_default();
+			let subs = detail.subscriptions.unwrap_or_default() as u64;
+			let favs = detail.favorited.unwrap_or_default() as u64;
+			let views = detail.views.unwrap_or_default() as u64;
+
+			if let Some(a) = authors.get_mut(&author_id) {
+				a.names.insert(author);
+				a.mods.push(mod_info);
+				a.total_downloads += subs;
+				a.total_favorites += favs;
+				a.total_views += views;
+			} else {
+				authors.insert(author_id, AuthorListItem { 
+					names: HashSet::from([author]),
+					mods: vec![mod_info],
+					total_downloads: subs,
+					total_favorites: favs,
+					total_views: views
+				});
+			}
+		}
+
+		next_cursor = list.next_cursor.unwrap();
+	}
+
+	return Ok(authors);
+}
+
+#[get("/list_authors")]
+pub async fn list_authors(state: &State<Api14State>) -> Result<CacheResponse<Value>, APIError> {
+	let cache = {
+		let author_cache = state.author_list_cache.lock().unwrap();
+		match author_cache.expired(7200) {
+			true => Some(author_cache.item.clone()),
+			false => None
+		}
+	};
+
+	return match cache {
+		Some(cached_value) => cached_json!(cached_value, 7200, false),
+		None => {
+			let authors = get_author_list(&state.steam_api_key).await?;
+
+			let mut cache = state.author_list_cache.lock().unwrap();
+			cache.item = authors.clone();
+			cache.time_stamp = std::time::SystemTime::now();
+
+			cached_json!(authors, 7200, false)
+		}
+	}
+}
+
+async fn get_mod_history(modid: u64, db: &PgPool) -> Result<Value, APIError> {
+	let row = sqlx::query!(
+		r#"
+		SELECT json_agg(
+			json_build_object(
+				'date', date,
+				'mod_id', mod_id,
+				'author_id', author_id,
+				'downloads_total', downloads_total,
+				'views', views,
+				'followers', followers,
+				'favorited', favorited,
+				'vote_data', json_build_object(
+					'votes_up', votes_up,
+					'votes_down', votes_down,
+					'score', score
+				),
+				'num_comments', num_comments,
+				'playtime', playtime,
+				'time_updated', time_updated,
+				'version', version
+			)
+			ORDER BY date DESC
+		) AS "history: Value"
+		FROM mod_history
+		WHERE mod_id = $1
+		"#,
+		modid.to_string()
+	)
+	.fetch_one(db)
+	.await?;
+
+	return Ok(row.history.unwrap_or(Value::Array(vec![])));
+}
+
+#[get("/history/mod/<modid>", rank=1)]
+pub async fn history_mod(modid: u64, state: &State<Api14State>) -> Result<Value, APIError> {
+	get_mod_history(modid, &state.db).await
+}
+
+#[get("/history/mod/<modname>", rank=2)]
+pub async fn history_mod_str(modname: &str, state: &State<Api14State>) -> Result<Value, APIError> {
+	let mod_id = steamapi::modname_to_modid(modname, &state.steam_api_key).await?;
+	return get_mod_history(mod_id, &state.db).await;
+}
+
+#[get("/history/global")]
+pub async fn history_global(state: &State<Api14State>) -> Result<Value, APIError> {
+	let db: &PgPool = &state.db;
+	let row = sqlx::query!(
+		r#"
+		SELECT json_agg(
+			json_build_object(
+				'date', date,
+				'mod_id', mod_id,
+				'author_id', author_id,
+				'downloads_total', downloads_total,
+				'views', views,
+				'followers', followers,
+				'favorited', favorited,
+				'vote_data', json_build_object(
+					'votes_up', votes_up,
+					'votes_down', votes_down,
+					'score', score
+				),
+				'num_comments', num_comments,
+				'playtime', playtime,
+				'time_updated', time_updated,
+				'version', version
+			)
+			ORDER BY date DESC
+		) AS "history: Value"
+		FROM mod_history
+		"#
+	)
+	.fetch_one(db)
+	.await?;
+
+	return Ok(row.history.unwrap_or(Value::Array(vec![])));
+}
+
+async fn get_author_history(steamid: u64, db: &PgPool) -> Result<Value, APIError> {
+	let row = sqlx::query!(
+		r#"
+		SELECT json_agg(
+			json_build_object(
+				'date', date,
+				'mod_id', mod_id,
+				'author_id', author_id,
+				'downloads_total', downloads_total,
+				'views', views,
+				'followers', followers,
+				'favorited', favorited,
+				'vote_data', json_build_object(
+					'votes_up', votes_up,
+					'votes_down', votes_down,
+					'score', score
+				),
+				'num_comments', num_comments,
+				'playtime', playtime,
+				'time_updated', time_updated,
+				'version', version
+			)
+			ORDER BY date DESC
+		) AS "history: Value"
+		FROM mod_history
+		WHERE author_id = $1
+		"#,
+		steamid.to_string()
+	)
+	.fetch_one(db)
+	.await?;
+
+	return Ok(row.history.unwrap_or(Value::Array(vec![])));
+}
+
+#[get("/history/author/<steamid>", rank=1)]
+pub async fn history_author(steamid: u64, state: &State<Api14State>) -> Result<Value, APIError> {
+	steamapi::validate_steamid64(steamid)?;
+	return get_author_history(steamid, &state.db).await;
+}
+
+#[get("/history/author/<steamname>", rank=2)]
+pub async fn history_author_str(steamname: &str, state: &State<Api14State>) -> Result<Value, APIError> {
+	let steamid = steamapi::steamname_to_steamid(steamname, &state.steam_api_key).await?;
+	return get_author_history(steamid, &state.db).await;
 }

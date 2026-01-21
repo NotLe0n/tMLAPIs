@@ -1,0 +1,21 @@
+services:
+  db:
+    image: timescale/timescaledb:latest-pg15
+    container_name: modinfo-db
+    ports:
+      - "5432:5432"
+    env_file:
+      - db.env
+    volumes:
+      - db_data:/var/lib/postgresql/data
+  tmlapis:
+    build: .
+    container_name: tmlapis
+    env_file:
+      - tmlapis.env
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+volumes:
+  db_data:

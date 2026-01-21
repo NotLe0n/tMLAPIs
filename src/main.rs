@@ -4,6 +4,7 @@ mod steamapi;
 mod cache;
 mod api13;
 mod api14;
+mod db;
 
 // import modules
 use crate::api_error::APIError;
@@ -16,6 +17,12 @@ use api14::Api14State;
 use rocket::serde::json::{Value, serde_json};
 use rocket::response::content::RawHtml;
 use rocket::fs::FileServer;
+
+use chrono::Utc;
+use clokwerk::{AsyncScheduler, Job, TimeUnits};
+use rocket::tokio;
+use std::sync::Arc;
+use std::time::Duration;
 
 #[macro_export]
 macro_rules! cached_json {
@@ -62,8 +69,30 @@ fn index_img() -> RawHtml<&'static str>{
 #[rocket::main]
 async fn main() -> Result<(), rocket::Error>{
 	let steam_api_key = std::env::var("STEAM_API_KEY").expect("the 'STEAM_API_KEY' environment variable could not be read");
+	let pool = Arc::new(db::create_pool().await);
 	let api13_state = Api13State::init(steam_api_key.clone());
-	let api14_state = Api14State::init(steam_api_key.clone());
+	let api14_state = Api14State::init(steam_api_key.clone(), Arc::clone(&pool));
+
+	let key = Arc::new(steam_api_key);
+	let mut scheduler = AsyncScheduler::with_tz(Utc);
+
+	scheduler.every(1.day()).at("13:00").run(move || {
+		let pool = Arc::clone(&pool);
+		let steam_api_key = Arc::clone(&key);
+
+		async move {
+			if let Err(e) = db::update_mod_history(&pool, &steam_api_key).await {
+				log::error!("Could not update mod history: {e}");
+			}
+		}
+	});
+
+	tokio::spawn(async move {
+		loop {
+			scheduler.run_pending().await;
+			tokio::time::sleep(Duration::from_secs(60)).await;
+		}
+	});
 
 	// use variable to get info like config or routes
     let _ = rocket::build().manage(api14_state).manage(api13_state)
@@ -73,7 +102,7 @@ async fn main() -> Result<(), rocket::Error>{
 		.mount("/img/", FileServer::from("./img/"))
 		.mount("/img/", routes![index_img])
 		.ignite().await?
-		.launch().await?;
+		.launch().await?; // blocking
 
 	Ok(())
 }

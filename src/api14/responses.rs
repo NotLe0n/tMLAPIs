@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use rocket::serde::{Serialize, Deserialize};
 use crate::steamapi;
 
@@ -63,6 +65,16 @@ pub struct AuthorInfo {
 	pub steam_name: String,
 	pub mods: Vec<ModInfo>,
 	pub total: u32,
+	pub total_downloads: u64,
+	pub total_favorites: u64,
+	pub total_views: u64,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(crate = "rocket::serde")]
+pub struct AuthorListItem {
+	pub names: HashSet<String>,
+	pub mods: Vec<ModInfo>,
 	pub total_downloads: u64,
 	pub total_favorites: u64,
 	pub total_views: u64,

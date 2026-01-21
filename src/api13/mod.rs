@@ -28,13 +28,13 @@ impl Api13State {
 fn index_1_3() -> RawHtml<&'static str> {
 	RawHtml(r#"
         <h1>1.3 Index</h1>
-		<a href="1.3/count">count</a><br>
-		<a href="1.3/author">author</a><br>
-		<a href="1.3/mod">mod</a><br>
-		<a href="1.3/list">list</a><br>
-		<a href="1.3/history">history</a><br>
+		<a href="/1.3/count">count</a><br>
+		<a href="/1.3/author">author</a><br>
+		<a href="/1.3/mod">mod</a><br>
+		<a href="/1.3/list">list</a><br>
+		<a href="/1.3/history">history</a><br>
 		<br>
-		<a href="..">go back</a><br>
+		<a href="/">go back</a><br>
 	"#)
 }
 
@@ -49,7 +49,7 @@ fn index_mod_1_3() -> RawHtml<&'static str> {
 			<input type="submit" value="Go" />
 		</form>
 
-		<a href="..">go back</a>
+		<a href="/1.3">go back</a>
 	"#)
 }
 
@@ -64,7 +64,7 @@ fn index_author_1_3() -> RawHtml<&'static str> {
 			<input type="submit" value="Go" />
 		</form>
 
-		<a href="..">go back</a>
+		<a href="/1.3">go back</a>
 	"#)
 }
 
@@ -79,12 +79,17 @@ fn index_history_1_3() -> RawHtml<&'static str> {
 			<input type="submit" value="Go" />
 		</form>
 
-		<a href="..">go back</a>
+		<a href="/1.3">go back</a>
 	"#)
 }
 
 use api::*;
 
 pub fn get_routes() -> Vec<rocket::Route> {
-    routes![index_1_3, count_1_3, index_author_1_3, author_1_3, author_1_3_str, index_mod_1_3, mod_1_3, list_1_3, index_history_1_3, history_1_3]
+    routes![
+		index_1_3, count_1_3, 
+		index_author_1_3, author_1_3, author_1_3_str, 
+		index_mod_1_3, mod_1_3, list_1_3, 
+		index_history_1_3, history_1_3
+	]
 }

@@ -1,6 +1,6 @@
 [package]
 name = "tmlapis"
-version = "8.0.0"
+version = "9.0.0"
 edition = "2024"
 authors = ["NotLe0n"]
 description = "a series of tmodloader apis to help make dynamic websites and tools"
@@ -17,6 +17,9 @@ scraper = "0.18.1"
 rocket-cache-response = "0.6.2"
 urlencoding = "2.1.2"
 log = "0.4"
+sqlx = { version = "0.8.6", features = [ "runtime-tokio", "postgres", "chrono", "json" ] }
+chrono = { version = "0.4.43", features = ["serde"] }
+clokwerk = "0.4.0"
 
 [profile.release]
 opt-level = 'z'     # Optimize for size

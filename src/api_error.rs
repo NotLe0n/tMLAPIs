@@ -20,7 +20,8 @@ pub enum APIError {
 	InvalidSteamID(u64),
 	InvalidModName(String),
 	InvalidModID(u64),
-	ScrapeError(String)
+	ScrapeError(String),
+	DBError(String)
 }
 
 impl std::fmt::Display for APIError {
@@ -34,6 +35,7 @@ impl std::fmt::Display for APIError {
 			APIError::InvalidModName(_) => "InvalidModName",
 			APIError::InvalidModID(_) => "InvalidModID",
 			APIError::ScrapeError(_) => "ScrapeError",
+			APIError::DBError(_) => "DBError"
 		})
 	}
 }
@@ -59,6 +61,13 @@ impl From<scraper::error::SelectorErrorKind<'_>> for APIError {
 	}
 }
 
+impl From<sqlx::Error> for APIError {
+	fn from(e: sqlx::Error) -> Self {
+		log::warn!("{}", e.to_string());
+		APIError::DBError(e.to_string())
+	}
+}
+
 impl<'r> Responder<'r, 'static> for APIError {
 	fn respond_to(self, req: &'r Request<'_>) -> response::Result<'static> {
 		let (status, message) = match &self {
@@ -70,6 +79,7 @@ impl<'r> Responder<'r, 'static> for APIError {
 			APIError::InvalidSteamID(steamid) => (Status::BadRequest, format!("The steamid '{}' is invalid", steamid)),
 			APIError::InvalidModName(name) => (Status::BadRequest, format!("Could not find a mod with the provided name: '{}'", name)),
 			APIError::InvalidModID(id) => (Status::BadRequest, format!("Could not find a mod with the id '{}'", id)),
+			APIError::DBError(msg) => (Status::InternalServerError, format!("An Error occured accessing the Database: '{msg}'")),
 		};
 
 		let body = Json(ErrorResponse {
