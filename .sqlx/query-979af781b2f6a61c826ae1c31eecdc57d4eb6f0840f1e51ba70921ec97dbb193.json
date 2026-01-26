@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n\t\tSELECT mod_id, mod_version, tmodloader_version\n\t\tFROM mod_versions\n\t\tWHERE mod_id = ANY($1)\n\t\tORDER BY mod_version\n\t\t",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "mod_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "mod_version",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "tmodloader_version",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8Array"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "979af781b2f6a61c826ae1c31eecdc57d4eb6f0840f1e51ba70921ec97dbb193"
+}

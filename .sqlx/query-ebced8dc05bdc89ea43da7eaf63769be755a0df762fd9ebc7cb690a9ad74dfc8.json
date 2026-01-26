@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n\t\t\tINSERT INTO mod_children (parent_mod_id, child_mod_id)\n\t\t\tSELECT c.parent_mod_id, c.child_mod_id\n\t\t\tFROM UNNEST(\n\t\t\t\t$1::BIGINT[],\n\t\t\t\t$2::BIGINT[]\n\t\t\t) AS c(parent_mod_id, child_mod_id)\n\t\t\tJOIN mods p ON p.mod_id = c.parent_mod_id\n\t\t\tJOIN mods ch ON ch.mod_id = c.child_mod_id;\n\t\t\t",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8Array",
+        "Int8Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ebced8dc05bdc89ea43da7eaf63769be755a0df762fd9ebc7cb690a9ad74dfc8"
+}
