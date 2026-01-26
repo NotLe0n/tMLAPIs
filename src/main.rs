@@ -4,7 +4,6 @@ mod steamapi;
 mod cache;
 mod api13;
 mod api14;
-mod db;
 
 // import modules
 use crate::api_error::APIError;
@@ -68,20 +67,21 @@ fn index_img() -> RawHtml<&'static str>{
 
 #[rocket::main]
 async fn main() -> Result<(), rocket::Error>{
-	let steam_api_key = std::env::var("STEAM_API_KEY").expect("the 'STEAM_API_KEY' environment variable could not be read");
-	let pool = Arc::new(db::create_pool().await);
-	let api13_state = Api13State::init(steam_api_key.clone());
-	let api14_state = Api14State::init(steam_api_key.clone(), Arc::clone(&pool));
+	let steam_api_key = Arc::new(std::env::var("STEAM_API_KEY").expect("the 'STEAM_API_KEY' environment variable could not be read"));
+	let pool = Arc::new(api14::db::create_pool().await);
 
-	let key = Arc::new(steam_api_key);
+	let api13_state = Api13State::init(Arc::clone(&steam_api_key));
+	let api14_state = Api14State::init(Arc::clone(&steam_api_key), Arc::clone(&pool));
+
 	let mut scheduler = AsyncScheduler::with_tz(Utc);
 
-	scheduler.every(1.day()).at("13:00").run(move || {
+	scheduler.every(1.day()).at("10:00").and_every(1.day()).at("22:00").run(move || {
 		let pool = Arc::clone(&pool);
-		let steam_api_key = Arc::clone(&key);
+		let steam_api_key = Arc::clone(&steam_api_key);
 
 		async move {
-			if let Err(e) = db::update_mod_history(&pool, &steam_api_key).await {
+			log::info!("Running db update");
+			if let Err(e) = api14::db::update_db(&pool, &steam_api_key).await {
 				log::error!("Could not update mod history: {e}");
 			}
 		}
@@ -95,7 +95,7 @@ async fn main() -> Result<(), rocket::Error>{
 	});
 
 	// use variable to get info like config or routes
-    let _ = rocket::build().manage(api14_state).manage(api13_state)
+	let _ = rocket::build().manage(api14_state).manage(api13_state)
 		.mount("/", routes![index, version])
 		.mount("/1.3/", api13::get_routes())
 		.mount("/1.4/", api14::get_routes())

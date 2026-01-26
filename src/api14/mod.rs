@@ -1,38 +1,35 @@
-pub mod api;
+mod api;
+pub mod db;
 mod responses;
 
-use std::{collections::HashMap, sync::{Arc, Mutex}};
-use responses::{AuthorInfo, ModInfo};
+use std::{sync::{Arc, Mutex}};
+use responses::{AuthorInfo};
 use sqlx::PgPool;
-use crate::{api14::responses::AuthorListItem, cache::{CacheItem, CacheMap}, steamapi};
+use crate::{cache::CacheMap, steamapi};
 use rocket::response::content::RawHtml;
 
 pub struct Api14State {
-	pub steam_api_key: String,
+	pub steam_api_key: Arc<String>,
 	pub db: Arc<PgPool>,
 	pub author_cache: Arc<Mutex<CacheMap<u64, AuthorInfo>>>,
-	pub author_list_cache: Arc<Mutex<CacheItem<HashMap<String, AuthorListItem>>>>,
-    pub mod_cache: Arc<Mutex<CacheMap<u64, steamapi::PublishedFileDetails>>>,
-	pub mod_list_cache: Arc<Mutex<CacheItem<Vec<ModInfo>>>>
+	pub mod_cache: Arc<Mutex<CacheMap<u64, steamapi::PublishedFileDetails>>>,
 }
 
 impl Api14State {
-    pub fn init(steam_api_key: String, db: Arc<PgPool>) -> Api14State {
-        Api14State { 
+	pub fn init(steam_api_key: Arc<String>, db: Arc<PgPool>) -> Api14State {
+		Api14State { 
 			steam_api_key,
 			db,
 			author_cache: Arc::new(Mutex::new(CacheMap::new())),
-			author_list_cache: Arc::new(Mutex::new(CacheItem::new())),
-            mod_cache: Arc::new(Mutex::new(CacheMap::new())),
-			mod_list_cache: Arc::new(Mutex::new(CacheItem::new()))
-        }
-    }
+			mod_cache: Arc::new(Mutex::new(CacheMap::new())),
+		}
+	}
 }
 
 #[get("/")]
 fn index_1_4() -> RawHtml<&'static str> {
 	RawHtml(r#"
-        <h1>1.4 Index</h1>
+		<h1>1.4 Index</h1>
 		<a href="/1.4/count">count</a><br>
 		<a href="/1.4/author">author</a><br>
 		<a href="/1.4/mod">mod</a><br>
@@ -49,7 +46,7 @@ fn index_1_4() -> RawHtml<&'static str> {
 fn index_mod_1_4() -> RawHtml<&'static str> {
 	RawHtml(r#"
 		<form action="javascript: window.location.href += '/' + document.getElementById('input').value">
-            <h1>Mod info (<a href="https://github.com/NotLe0n/tMLAPIs/wiki/1.4-mod">Docs</a>)</h1> 
+			<h1>Mod info (<a href="https://github.com/NotLe0n/tMLAPIs/wiki/1.4-mod">Docs</a>)</h1> 
 
 			<label for="input">Mod ID or name:</label>
 			<input type="text" id="input">
@@ -78,7 +75,7 @@ fn index_author_1_4() -> RawHtml<&'static str> {
 #[get("/history")]
 fn index_history() -> RawHtml<&'static str> {
 	RawHtml(r#"
-        <h1>1.4/History</h1>
+		<h1>1.4/History</h1>
 		<a href="/1.4/history/mod">mod history</a><br>
 		<a href="/1.4/history/global">global history</a><br>
 		<a href="/1.4/history/author">author history</a><br>
@@ -120,7 +117,7 @@ fn index_history_author() -> RawHtml<&'static str> {
 use api::*;
 
 pub fn get_routes() -> Vec<rocket::Route> {
-    routes![
+	routes![
 		index_1_4, 
 		count_1_4, 
 		index_author_1_4, author_1_4, author_1_4_str, 

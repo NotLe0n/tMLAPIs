@@ -1,11 +1,12 @@
 extern crate reqwest;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap};
 
 use rocket::State;
 use rocket::serde::json::serde_json::{self, Value};
 use rocket_cache_response::CacheResponse;
-use sqlx::PgPool;
+use sqlx::{PgPool, Postgres, Transaction};
+use crate::api14::db::ModsRow;
 use crate::{APIError, cache, cached_json, steamapi};
 use super::{responses::*, Api14State};
 
@@ -100,11 +101,11 @@ fn get_filtered_mod_info(publishedfiledetail: &steamapi::PublishedFileDetails) -
 				"modloaderversion"  => deprecated_version_tmodloader = value,
 				"versionsummary"    => version_summary = value,
 				"modreferences"     => mod_references = value,
-				"youtube"           => youtube = Some(value),
-				"twitter"           => twitter = Some(value),
-				"reddit"            => reddit = Some(value),
-				"facebook"          => facebook = Some(value),
-				"sketchfab" 		=> sketchfab = Some(value),
+				"youtube"           => youtube = (!value.is_empty()).then_some(value),
+				"twitter"           => twitter = (!value.is_empty()).then_some(value),
+				"reddit"            => reddit = (!value.is_empty()).then_some(value),
+				"facebook"          => facebook = (!value.is_empty()).then_some(value),
+				"sketchfab" 		=> sketchfab = (!value.is_empty()).then_some(value),
 				tag => log::warn!("missing KV Tag: {tag}")
 			}
 		}
@@ -139,13 +140,19 @@ fn get_filtered_mod_info(publishedfiledetail: &steamapi::PublishedFileDetails) -
 			})
 		 };
 
+	let children = publishedfiledetail.children.map(|children| 
+		children.iter()
+			.filter_map(|c| c.publishedfileid.parse().ok())
+			.collect()
+		);
+
 	// construct ModInfo struct
 	return ModInfo{
 		display_name: publishedfiledetail.title.unwrap_or_default(),
 		internal_name,
-		mod_id: publishedfiledetail.publishedfileid.unwrap_or_default(),
+		mod_id: publishedfiledetail.publishedfileid.unwrap_or_default().parse().unwrap_or_default(),
 		author,
-		author_id: publishedfiledetail.creator.unwrap_or_default(),
+		author_id: publishedfiledetail.creator.unwrap_or_default().parse().unwrap_or_default(),
 		modside,
 		homepage,
 		versions,
@@ -155,7 +162,7 @@ fn get_filtered_mod_info(publishedfiledetail: &steamapi::PublishedFileDetails) -
 		time_created: publishedfiledetail.time_created.unwrap_or_default(),
 		time_updated: publishedfiledetail.time_updated.unwrap_or_default(),
 		workshop_icon_url: publishedfiledetail.preview_url.unwrap_or_default(),
-		children: publishedfiledetail.children,
+		children: children,
 		description: publishedfiledetail.file_description,
 		downloads_total: publishedfiledetail.subscriptions.unwrap_or_default(),
 		favorited: publishedfiledetail.favorited.unwrap_or_default(),
@@ -222,108 +229,165 @@ pub async fn get_filtered_mod_list(steam_api_key: &str) -> Result<Vec<ModInfo>, 
 }
 
 #[get("/list")]
-pub async fn list_1_4(state: &State<Api14State>) -> Result<CacheResponse<Value>, APIError> {
-	let cache = {
-		let mod_cache = state.mod_list_cache.lock().unwrap();
-		match mod_cache.expired(7200) {
-			true => Some(mod_cache.item.clone()),
-			false => None
-		}
-	};
+pub async fn list_1_4(state: &State<Api14State>) -> Result<Value, APIError> {
+	let db: &PgPool = &state.db;
+	
+	let mut tx: Transaction<Postgres> = db.begin().await?;
 
-	return match cache {
-		Some(cached_value) => cached_json!(cached_value, 7200, false),
-		None => {
-			let mods = get_filtered_mod_list(&state.steam_api_key).await?;
+	// get all mods
+	let rows: Vec<ModsRow> = sqlx::query_as!(ModsRow,
+		r#"
+		SELECT * FROM mods 
+		LEFT JOIN mod_socials USING (mod_id)
+		"#
+	).fetch_all(&mut *tx).await?;
 
-			// update cache value
-			let mut cache = state.mod_list_cache.lock().unwrap();
-			cache.item = mods.clone();
-			cache.time_stamp = std::time::SystemTime::now();
+	let mod_ids: Vec<i64> = rows.iter().map(|r| r.mod_id).collect();
 
-			cached_json!(mods, 7200, false)
-		}
-	};
-}
+	// map mod ids to mod list of versions
+	let mut versions_map: HashMap<i64, Vec<ModVersion>> = sqlx::query!(
+		r#"
+		SELECT mod_id, mod_version, tmodloader_version
+		FROM mod_versions
+		WHERE mod_id = ANY($1)
+		ORDER BY mod_version
+		"#,
+		&mod_ids
+	)
+	.fetch_all(&mut *tx)
+	.await?
+	.into_iter()
+	.fold(HashMap::new(), |mut acc, row| {
+		acc.entry(row.mod_id)
+			.or_default()
+			.push(ModVersion {
+				mod_version: row.mod_version,
+				tmodloader_version: row.tmodloader_version,
+			});
+		acc
+	});
 
-pub async fn get_author_list(steam_api_key: &str) -> Result<HashMap<String, AuthorListItem>, APIError> {
-	let client = reqwest::Client::new();
+	// mod mod ids to list of tags
+	let mut tags_map: HashMap<i64, Vec<steamapi::ModTag>> = sqlx::query!(
+		r#"
+		SELECT mod_id, tag, display_name
+		FROM mod_tags
+		WHERE mod_id = ANY($1)
+		"#,
+		&mod_ids
+	)
+	.fetch_all(&mut *tx)
+	.await?
+	.into_iter()
+	.fold(HashMap::new(), |mut acc, row| {
+		acc.entry(row.mod_id)
+			.or_default()
+			.push(steamapi::ModTag {
+				tag: row.tag,
+				display_name: row.display_name,
+			});
+		acc
+	});
 
-	let mut authors: HashMap<String, AuthorListItem> = HashMap::new();
-	let mut next_cursor = String::from("*");
-	loop {
-		let list = steamapi::get_mod_list(&client, &next_cursor, steam_api_key).await?;
-		if list.total == 0 || list.publishedfiledetails.is_none() {
-			break;
-		}
+	// map mod ids to list of children
+	let mut children_map: HashMap<i64, Vec<u64>> = sqlx::query!(
+		r#"
+		SELECT parent_mod_id, child_mod_id
+		FROM mod_children
+		WHERE parent_mod_id = ANY($1)
+		"#,
+		&mod_ids
+	)
+	.fetch_all(&mut *tx).await?
+	.into_iter()
+	.fold(HashMap::new(), |mut acc, row| {
+		acc.entry(row.parent_mod_id)
+			.or_default()
+			.push(row.child_mod_id as u64);
+		acc
+	});
 
-		let details = &list.publishedfiledetails.unwrap();
+	let mut mods = Vec::with_capacity(rows.len());
 
-		for detail in details {
-			let mod_info = get_filtered_mod_info(&detail);
+	for row in rows {	
+		mods.push(ModInfo {
+			display_name: row.display_name,
+			internal_name: row.internal_name,
+			mod_id: row.mod_id as u64,
+			author: row.author,
+			author_id: row.author_id as u64,
+			modside: row.modside,
+			homepage: row.homepage,
+			versions: versions_map.remove(&row.mod_id).unwrap_or_default(),
+			tags: tags_map.remove(&row.mod_id),
+			children: children_map.remove(&row.mod_id),
+			socials: [&row.youtube, &row.twitter, &row.reddit, &row.facebook, &row.sketchfab]
+				.iter().any(|f| f.as_deref().is_some()).then_some(ModSocials {
+				youtube: row.youtube,
+				twitter: row.twitter,
+				reddit: row.reddit,
+				facebook: row.facebook,
+				sketchfab: row.sketchfab
+			}),
+			mod_references: row.mod_references,
+			num_versions: row.num_versions as u32,
+			time_created: row.time_created as u64,
+			time_updated: row.time_updated as u64,
+			workshop_icon_url: row.workshop_icon_url,
+			description: row.description,
+			downloads_total: row.downloads_total as u32,
+			favorited: row.favorited as u32,
+			followers: row.followers as u32,
+			views: row.views as u64,
+			playtime: row.playtime,
+			num_comments: row.num_comments as u32,
 
-			let detail = detail.clone();
-
-			let mut author = String::new();
-			if let Some(kvtags) = detail.kvtags {
-				for steamapi::KVTag { key, value } in kvtags.into_iter() {
-					match key.as_str() {
-						"Author" => author = value,
-						_ => ()
-					}
-				}
-			}
-
-			let author_id = detail.creator.unwrap_or_default();
-			let subs = detail.subscriptions.unwrap_or_default() as u64;
-			let favs = detail.favorited.unwrap_or_default() as u64;
-			let views = detail.views.unwrap_or_default() as u64;
-
-			if let Some(a) = authors.get_mut(&author_id) {
-				a.names.insert(author);
-				a.mods.push(mod_info);
-				a.total_downloads += subs;
-				a.total_favorites += favs;
-				a.total_views += views;
-			} else {
-				authors.insert(author_id, AuthorListItem { 
-					names: HashSet::from([author]),
-					mods: vec![mod_info],
-					total_downloads: subs,
-					total_favorites: favs,
-					total_views: views
-				});
-			}
-		}
-
-		next_cursor = list.next_cursor.unwrap();
+			vote_data: Some(crate::steamapi::VoteData {
+				score: row.score,
+				votes_up: row.votes_up as u32,
+				votes_down: row.votes_down as u32,
+			})
+		})
 	}
 
-	return Ok(authors);
+	tx.commit().await?;
+
+	Ok(serde_json::json!(mods))
 }
 
 #[get("/list_authors")]
-pub async fn list_authors(state: &State<Api14State>) -> Result<CacheResponse<Value>, APIError> {
-	let cache = {
-		let author_cache = state.author_list_cache.lock().unwrap();
-		match author_cache.expired(7200) {
-			true => Some(author_cache.item.clone()),
-			false => None
-		}
-	};
+pub async fn list_authors(state: &State<Api14State>) -> Result<Value, APIError> {
+	let db: &PgPool = &state.db;
 
-	return match cache {
-		Some(cached_value) => cached_json!(cached_value, 7200, false),
-		None => {
-			let authors = get_author_list(&state.steam_api_key).await?;
+	let rows = sqlx::query!(
+		r#"
+		SELECT
+			json_build_object(
+				'author_id', author_id,
+				'author_names', array_agg(DISTINCT author),
+				'mods', json_agg(
+					json_build_object(
+						'mod_id', mod_id,
+						'display_name', display_name,
+						'internal_name', internal_name
+					)
+					ORDER BY display_name
+				),
+				'total_downloads', SUM(downloads_total)::BIGINT,
+				'total_views', SUM(views)::BIGINT,
+				'total_favorited', SUM(favorited)::BIGINT
+			) AS result
+		FROM mods
+		GROUP BY author_id
+		ORDER BY SUM(downloads_total) DESC
+		"#
+	)
+	.fetch_all(db)
+	.await?;
 
-			let mut cache = state.author_list_cache.lock().unwrap();
-			cache.item = authors.clone();
-			cache.time_stamp = std::time::SystemTime::now();
-
-			cached_json!(authors, 7200, false)
-		}
-	}
+	Ok(Value::Array(
+		rows.into_iter().filter_map(|r| r.result).collect()
+	))
 }
 
 async fn get_mod_history(modid: u64, db: &PgPool) -> Result<Value, APIError> {
@@ -353,7 +417,7 @@ async fn get_mod_history(modid: u64, db: &PgPool) -> Result<Value, APIError> {
 		FROM mod_history
 		WHERE mod_id = $1
 		"#,
-		modid.to_string()
+		modid as i64
 	)
 	.fetch_one(db)
 	.await?;
@@ -434,7 +498,7 @@ async fn get_author_history(steamid: u64, db: &PgPool) -> Result<Value, APIError
 		FROM mod_history
 		WHERE author_id = $1
 		"#,
-		steamid.to_string()
+		steamid as i64
 	)
 	.fetch_one(db)
 	.await?;
