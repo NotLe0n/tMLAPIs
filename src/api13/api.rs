@@ -15,7 +15,7 @@ const API_URL: &str = "http://javid.ddns.net/tModLoader";
 
 async fn get_html(url: &str) -> Result<Html, reqwest::Error> {
 	let res = reqwest::get(url).await?;
-    let body = res.text().await?;
+	let body = res.text().await?;
 	return Ok(Html::parse_document(&body));
 }
 

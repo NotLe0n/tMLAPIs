@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use rocket::serde::{Serialize, Deserialize};
 use crate::steamapi;
 
@@ -34,9 +32,9 @@ pub struct ModSocials {
 pub struct ModInfo {
 	pub display_name: String,
 	pub internal_name: String,
-	pub mod_id: String,
+	pub mod_id: u64,
 	pub author: String,
-	pub author_id: String,
+	pub author_id: u64,
 	pub modside: String,
 	pub homepage: String,
 	pub versions: Vec<ModVersion>,
@@ -46,7 +44,7 @@ pub struct ModInfo {
 	pub time_created: u64,
 	pub time_updated: u64,
 	pub workshop_icon_url: String,
-	pub children: Option<Vec<steamapi::Child>>,
+	pub children: Option<Vec<u64>>,
 	pub description: Option<String>,
 	pub downloads_total: u32,
 	pub favorited: u32,
@@ -65,16 +63,6 @@ pub struct AuthorInfo {
 	pub steam_name: String,
 	pub mods: Vec<ModInfo>,
 	pub total: u32,
-	pub total_downloads: u64,
-	pub total_favorites: u64,
-	pub total_views: u64,
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-#[serde(crate = "rocket::serde")]
-pub struct AuthorListItem {
-	pub names: HashSet<String>,
-	pub mods: Vec<ModInfo>,
 	pub total_downloads: u64,
 	pub total_favorites: u64,
 	pub total_views: u64,

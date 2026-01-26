@@ -1,0 +1,5 @@
+ALTER TABLE mod_history
+ALTER COLUMN mod_id TYPE BIGINT USING mod_id::BIGINT;
+
+ALTER TABLE mod_history
+ALTER COLUMN author_id TYPE BIGINT USING author_id::BIGINT;
