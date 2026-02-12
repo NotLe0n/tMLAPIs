@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n\t\tSELECT \n\t\t\tjson_build_object('date', date,\n\t\t\t\t'downloads_total', SUM(downloads_total),\n\t\t\t\t'views_total', SUM(views),\n\t\t\t\t'followers_total', SUM(followers),\n\t\t\t\t'favorited_total', SUM(favorited),\n\t\t\t\t'playtime_total', SUM(playtime),\n\t\t\t\t'comments_total', SUM(num_comments) \n\t\t\t) AS \"history: Value\" \n\t\tfrom mod_history GROUP BY date\n\t\tORDER BY date DESC\n\t\t",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "history: Value",
+        "type_info": "Json"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "51fabb084b4b36047dae2ad3b9c05b2303d11b9a7fcbbcd1d12234fcb6f7095e"
+}
