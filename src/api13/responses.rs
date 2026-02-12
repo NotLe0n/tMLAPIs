@@ -58,6 +58,7 @@ pub struct MaintainedModInfo {
 pub struct AuthorInfo {
 	pub steam_id: u64,
 	pub steam_name: String,
+	pub steam_avatar: String,
 	pub downloads_total: u32,
 	pub downloads_yesterday: u32,
 	pub total: u32,

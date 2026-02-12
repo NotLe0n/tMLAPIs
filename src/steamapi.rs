@@ -214,7 +214,7 @@ pub async fn get_mod_count(api_key: &str) -> Result<CountResponse, APIError> {
 }
 
 pub async fn get_user_mods(steamid: u64, api_key: &str) -> Result<ModListResponse, APIError> {
-	let url = format!("/IPublishedFileService/GetUserFiles/v1/?key={}&appid={APP_ID}&steamid={}&numperpage=100", api_key, steamid);
+	let url = format!("/IPublishedFileService/GetUserFiles/v1/?key={}&appid={APP_ID}&steamid={}&numperpage=100&return_short_description=false&return_children=true", api_key, steamid);
 	let res = get_steam::<ModListResponse>(&url).await?;
 
 	if let Some(files) = res.publishedfiledetails.as_ref() {
@@ -297,6 +297,14 @@ pub async fn get_user_info(steamid: u64, api_key: &str) -> Result<SteamUserInfo,
 		Some(user) => Ok(user.clone()),
 		None => Err(APIError::SteamIDNotFound(steamid))
 	}
+}
+
+pub async fn get_users_info(steamids: &[u64], api_key: &str) -> Result<Vec<SteamUserInfo>, APIError> {
+	let steamids_csv = steamids.iter().map(u64::to_string).collect::<Vec<_>>().join(",");
+	let url = format!("/ISteamUser/GetPlayerSummaries/v2/?key={}&steamids={}", api_key, steamids_csv);
+	let res: SteamUserInfoResponse = get_steam(&url).await?;
+	
+	return Ok(res.players);
 }
 
 // steamid64 is only valid in a specific number range

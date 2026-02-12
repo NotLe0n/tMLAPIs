@@ -1,6 +1,6 @@
 use crate::{
 	api_error::APIError,
-	api14::{api, responses::ModInfo},
+	api14::{mod_api, responses::ModInfo},
 };
 use chrono::{Timelike, Utc};
 use rocket::serde::Serialize;
@@ -49,7 +49,7 @@ pub async fn create_pool() -> PgPool {
 }
 
 pub async fn update_db(db: &PgPool, steam_api_key: &str) -> Result<(), APIError> {
-	let mods = api::get_filtered_mod_list(steam_api_key).await?;
+	let mods = mod_api::get_filtered_mod_list(steam_api_key).await?;
 
 	update_mod_list(&mods, db).await?;
 	if Utc::now().hour() < 22 {

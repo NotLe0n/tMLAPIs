@@ -1,6 +1,10 @@
-mod api;
 pub mod db;
+
+mod mod_api;
 mod responses;
+mod author_api;
+mod history_api;
+mod list_api;
 
 use std::{sync::{Arc, Mutex}};
 use responses::{AuthorInfo};
@@ -42,79 +46,10 @@ fn index_1_4() -> RawHtml<&'static str> {
 	"#)
 }
 
-#[get("/mod")]
-fn index_mod_1_4() -> RawHtml<&'static str> {
-	RawHtml(r#"
-		<form action="javascript: window.location.href += '/' + document.getElementById('input').value">
-			<h1>Mod info (<a href="https://github.com/NotLe0n/tMLAPIs/wiki/1.4-mod">Docs</a>)</h1> 
-
-			<label for="input">Mod ID or name:</label>
-			<input type="text" id="input">
-			<input type="submit" value="Go" />
-		</form>
-
-		<a href="/1.4">go back</a>
-	"#)
-}
-
-#[get("/author")]
-fn index_author_1_4() -> RawHtml<&'static str> {
-	RawHtml(r#"
-		<h1>Author info (<a href="https://github.com/NotLe0n/tMLAPIs/wiki/1.4-author">Docs</a>)</h1> 
-
-		<form action="javascript: window.location.href += '/' + document.getElementById('input').value">
-			<label for="input">SteamID64 or vanity name:</label>
-			<input type="text" id="input">
-			<input type="submit" value="Go" />
-		</form>
-
-		<a href="/1.4">go back</a>
-	"#)
-}
-
-#[get("/history")]
-fn index_history() -> RawHtml<&'static str> {
-	RawHtml(r#"
-		<h1>1.4/History</h1>
-		<a href="/1.4/history/mod">mod history</a><br>
-		<a href="/1.4/history/global">global history</a><br>
-		<a href="/1.4/history/author">author history</a><br>
-
-		<br>
-		<a href="/1.4">go back</a><br>
-	"#)
-}
-
-#[get("/history/mod")]
-fn index_history_mod() -> RawHtml<&'static str> {
-	RawHtml(r#"
-		<form action="javascript: window.location.href += '/' + document.getElementById('input').value">
-			<h1>Mod History (<a href="https://github.com/NotLe0n/tMLAPIs/wiki/1.4-mod-history">Docs</a>)</h1> 
-
-			<label for="input">Mod ID or name:</label>
-			<input type="text" id="input">
-			<input type="submit" value="Go" />
-		</form>
-
-		<a href="/1.4/history">go back</a>
-	"#)
-}
-
-#[get("/history/author")]
-fn index_history_author() -> RawHtml<&'static str> {
-	RawHtml(r#"
-		<h1>Author History (<a href="https://github.com/NotLe0n/tMLAPIs/wiki/1.4-author-history">Docs</a>)</h1> 
-
-		<form action="javascript: window.location.href += '/' + document.getElementById('input').value">
-			<label for="input">SteamID64 or vanity name:</label>
-			<input type="text" id="input">
-			<input type="submit" value="Go" />
-		</form>
-
-		<a href="/1.4/history">go back</a>
-	"#)
-}
-use api::*;
+use mod_api::{index_mod_1_4, count_1_4, mod_1_4, mod_1_4_str};
+use author_api::{index_author_1_4, author_1_4, author_1_4_str, get_steam_avatar};
+use list_api::{list_1_4, list_authors};
+use history_api::{index_history, index_history_mod, history_mod, history_mod_str, index_history_author, history_author, history_author_str, history_global};
 
 pub fn get_routes() -> Vec<rocket::Route> {
 	routes![
@@ -126,6 +61,7 @@ pub fn get_routes() -> Vec<rocket::Route> {
 		index_history,
 		index_history_mod, history_mod, history_mod_str, 
 		index_history_author, history_author, history_author_str,
-		history_global
+		history_global,
+		get_steam_avatar
 	]
 }
