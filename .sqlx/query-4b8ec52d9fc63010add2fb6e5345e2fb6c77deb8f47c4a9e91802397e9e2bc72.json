@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n\t\tSELECT json_agg(\n\t\t\tjson_build_object(\n\t\t\t\t'date', date,\n\t\t\t\t'mod_id', mod_id,\n\t\t\t\t'author_id', author_id::text,\n\t\t\t\t'downloads_total', downloads_total,\n\t\t\t\t'views', views,\n\t\t\t\t'followers', followers,\n\t\t\t\t'favorited', favorited,\n\t\t\t\t'vote_data', json_build_object(\n\t\t\t\t\t'votes_up', votes_up,\n\t\t\t\t\t'votes_down', votes_down,\n\t\t\t\t\t'score', score\n\t\t\t\t),\n\t\t\t\t'num_comments', num_comments,\n\t\t\t\t'playtime', playtime,\n\t\t\t\t'time_updated', time_updated,\n\t\t\t\t'version', version\n\t\t\t)\n\t\t\tORDER BY date DESC\n\t\t) AS \"history: Value\"\n\t\tFROM mod_history\n\t\tWHERE mod_id = $1\n\t\t",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "history: Value",
+        "type_info": "Json"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "4b8ec52d9fc63010add2fb6e5345e2fb6c77deb8f47c4a9e91802397e9e2bc72"
+}

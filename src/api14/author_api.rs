@@ -48,7 +48,7 @@ async fn get_author_info(steamid: u64, state: &State<Api14State>) -> Result<Cach
 			}
 
 			let author = AuthorInfo {
-				steam_id: steamid,
+				steam_id: steamid.to_string(),
 				steam_name: steam_user.personaname,
 				steam_avatar: steam_user.avatarfull,
 				mods,

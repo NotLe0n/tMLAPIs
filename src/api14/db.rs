@@ -83,7 +83,7 @@ pub async fn update_mod_history(mods: &Vec<ModInfo>, db: &PgPool) -> Result<(), 
 
 	for m in mods {
 		mod_ids.push(m.mod_id as i64);
-		author_ids.push(m.author_id as i64);
+		author_ids.push(m.author_id.parse().unwrap_or_default());
 		downloads.push(m.downloads_total as i32);
 		views.push(m.views as i64);
 		followers.push(m.followers as i32);
@@ -211,7 +211,7 @@ pub async fn update_mod_list(mods: &Vec<ModInfo>, db: &PgPool) -> Result<(), API
 		display_names.push(m.display_name.clone());
 		internal_names.push(m.internal_name.clone());
 		authors.push(m.author.clone());
-		author_ids.push(m.author_id as i64);
+		author_ids.push(m.author_id.parse().unwrap_or_default());
 		modsides.push(m.modside.clone());
 		homepages.push(m.homepage.clone());
 		mod_refs.push(m.mod_references.clone());

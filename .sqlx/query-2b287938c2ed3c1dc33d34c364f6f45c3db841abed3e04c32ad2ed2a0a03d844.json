@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n\t\tSELECT\n\t\t\tjson_build_object(\n\t\t\t\t'author_id', author_id::text,\n\t\t\t\t'author_names', array_agg(DISTINCT author),\n\t\t\t\t'mods', json_agg(\n\t\t\t\t\tjson_build_object(\n\t\t\t\t\t\t'mod_id', mod_id,\n\t\t\t\t\t\t'display_name', display_name,\n\t\t\t\t\t\t'internal_name', internal_name\n\t\t\t\t\t)\n\t\t\t\t\tORDER BY display_name\n\t\t\t\t),\n\t\t\t\t'total_downloads', SUM(downloads_total)::BIGINT,\n\t\t\t\t'total_views', SUM(views)::BIGINT,\n\t\t\t\t'total_favorited', SUM(favorited)::BIGINT\n\t\t\t) AS result\n\t\tFROM mods\n\t\tGROUP BY author_id\n\t\tORDER BY SUM(downloads_total) DESC\n\t\t",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "result",
+        "type_info": "Json"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "2b287938c2ed3c1dc33d34c364f6f45c3db841abed3e04c32ad2ed2a0a03d844"
+}
