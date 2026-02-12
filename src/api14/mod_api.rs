@@ -112,7 +112,7 @@ pub fn get_filtered_mod_info(publishedfiledetail: &steamapi::PublishedFileDetail
 		internal_name,
 		mod_id: publishedfiledetail.publishedfileid.unwrap_or_default().parse().unwrap_or_default(),
 		author,
-		author_id: publishedfiledetail.creator.unwrap_or_default().parse().unwrap_or_default(),
+		author_id: publishedfiledetail.creator.unwrap_or_default(),
 		modside,
 		homepage,
 		versions,

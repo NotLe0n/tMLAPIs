@@ -97,7 +97,7 @@ pub async fn list_1_4(state: &State<Api14State>) -> Result<Value, APIError> {
 			internal_name: row.internal_name,
 			mod_id: row.mod_id as u64,
 			author: row.author,
-			author_id: row.author_id as u64,
+			author_id: row.author_id.to_string(),
 			modside: row.modside,
 			homepage: row.homepage,
 			versions: versions_map.remove(&row.mod_id).unwrap_or_default(),
@@ -145,7 +145,7 @@ pub async fn list_authors(state: &State<Api14State>) -> Result<Value, APIError> 
 		r#"
 		SELECT
 			json_build_object(
-				'author_id', author_id,
+				'author_id', author_id::text,
 				'author_names', array_agg(DISTINCT author),
 				'mods', json_agg(
 					json_build_object(

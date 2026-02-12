@@ -34,7 +34,7 @@ pub struct ModInfo {
 	pub internal_name: String,
 	pub mod_id: u64,
 	pub author: String,
-	pub author_id: u64,
+	pub author_id: String,
 	pub modside: String,
 	pub homepage: String,
 	pub versions: Vec<ModVersion>,
@@ -59,7 +59,7 @@ pub struct ModInfo {
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(crate = "rocket::serde")]
 pub struct AuthorInfo {
-	pub steam_id: u64,
+	pub steam_id: String,
 	pub steam_name: String,
 	pub steam_avatar: String,
 	pub mods: Vec<ModInfo>,

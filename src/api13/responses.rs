@@ -56,7 +56,7 @@ pub struct MaintainedModInfo {
 #[derive(Serialize, Clone)]
 #[serde(crate = "rocket::serde")]
 pub struct AuthorInfo {
-	pub steam_id: u64,
+	pub steam_id: String,
 	pub steam_name: String,
 	pub steam_avatar: String,
 	pub downloads_total: u32,

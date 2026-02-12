@@ -58,7 +58,7 @@ async fn get_mod_history(modid: u64, db: &PgPool) -> Result<Value, APIError> {
 			json_build_object(
 				'date', date,
 				'mod_id', mod_id,
-				'author_id', author_id,
+				'author_id', author_id::text,
 				'downloads_total', downloads_total,
 				'views', views,
 				'followers', followers,
@@ -130,7 +130,7 @@ async fn get_author_history(steamid: u64, db: &PgPool) -> Result<Value, APIError
 			json_build_object(
 				'date', date,
 				'mod_id', mod_id,
-				'author_id', author_id,
+				'author_id', author_id::text,
 				'downloads_total', downloads_total,
 				'views', views,
 				'followers', followers,
