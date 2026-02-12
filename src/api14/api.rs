@@ -54,6 +54,7 @@ async fn get_author_info(steamid: u64, state: &State<Api14State>) -> Result<Cach
 			let author = AuthorInfo {
 				steam_id: steamid,
 				steam_name: steam_user.personaname,
+				steam_avatar: steam_user.avatarfull,
 				mods,
 				total: author_data.total,
 				total_downloads,
@@ -441,34 +442,25 @@ pub async fn history_global(state: &State<Api14State>) -> Result<Value, APIError
 	let db: &PgPool = &state.db;
 	let row = sqlx::query!(
 		r#"
-		SELECT json_agg(
-			json_build_object(
-				'date', date,
-				'mod_id', mod_id,
-				'author_id', author_id,
-				'downloads_total', downloads_total,
-				'views', views,
-				'followers', followers,
-				'favorited', favorited,
-				'vote_data', json_build_object(
-					'votes_up', votes_up,
-					'votes_down', votes_down,
-					'score', score
-				),
-				'num_comments', num_comments,
-				'playtime', playtime,
-				'time_updated', time_updated,
-				'version', version
-			)
-			ORDER BY date DESC
-		) AS "history: Value"
-		FROM mod_history
+		SELECT 
+			json_build_object('date', date,
+				'downloads_total', SUM(downloads_total),
+				'views_total', SUM(views),
+				'followers_total', SUM(followers),
+				'favorited_total', SUM(favorited),
+				'playtime_total', SUM(playtime),
+				'comments_total', SUM(num_comments) 
+			) AS "history: Value" 
+		from mod_history GROUP BY date
+		ORDER BY date DESC
 		"#
 	)
-	.fetch_one(db)
+	.fetch_all(db)
 	.await?;
 
-	return Ok(row.history.unwrap_or(Value::Array(vec![])));
+	return Ok(Value::Array(
+		row.into_iter().filter_map(|f| f.history).collect()
+	));
 }
 
 async fn get_author_history(steamid: u64, db: &PgPool) -> Result<Value, APIError> {
@@ -516,4 +508,12 @@ pub async fn history_author(steamid: u64, state: &State<Api14State>) -> Result<V
 pub async fn history_author_str(steamname: &str, state: &State<Api14State>) -> Result<Value, APIError> {
 	let steamid = steamapi::steamname_to_steamid(steamname, &state.steam_api_key).await?;
 	return get_author_history(steamid, &state.db).await;
+}
+
+#[get("/get_steam_avatar?<steamids>")]
+pub async fn get_steam_avatar(steamids: Vec<u64>, state: &State<Api14State>) -> Result<Value, APIError> {
+	let user_infos = steamapi::get_users_info(steamids.as_slice(), &state.steam_api_key).await?;
+	let s: HashMap<String, String> = user_infos.iter().map(|f| (f.steamid.clone(), f.avatarfull.clone())).collect();
+
+	return Ok(serde_json::json!(s));
 }

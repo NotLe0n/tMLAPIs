@@ -126,6 +126,7 @@ pub fn get_routes() -> Vec<rocket::Route> {
 		index_history,
 		index_history_mod, history_mod, history_mod_str, 
 		index_history_author, history_author, history_author_str,
-		history_global
+		history_global,
+		get_steam_avatar
 	]
 }

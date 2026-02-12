@@ -299,6 +299,14 @@ pub async fn get_user_info(steamid: u64, api_key: &str) -> Result<SteamUserInfo,
 	}
 }
 
+pub async fn get_users_info(steamids: &[u64], api_key: &str) -> Result<Vec<SteamUserInfo>, APIError> {
+	let steamids_csv = steamids.iter().map(u64::to_string).collect::<Vec<_>>().join(",");
+	let url = format!("/ISteamUser/GetPlayerSummaries/v2/?key={}&steamids={}", api_key, steamids_csv);
+	let res: SteamUserInfoResponse = get_steam(&url).await?;
+	
+	return Ok(res.players);
+}
+
 // steamid64 is only valid in a specific number range
 pub fn validate_steamid64(steamid: u64) -> Result<u64, APIError> {
 	match steamid {

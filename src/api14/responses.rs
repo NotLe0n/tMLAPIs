@@ -61,6 +61,7 @@ pub struct ModInfo {
 pub struct AuthorInfo {
 	pub steam_id: u64,
 	pub steam_name: String,
+	pub steam_avatar: String,
 	pub mods: Vec<ModInfo>,
 	pub total: u32,
 	pub total_downloads: u64,
