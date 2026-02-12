@@ -214,7 +214,7 @@ pub async fn get_mod_count(api_key: &str) -> Result<CountResponse, APIError> {
 }
 
 pub async fn get_user_mods(steamid: u64, api_key: &str) -> Result<ModListResponse, APIError> {
-	let url = format!("/IPublishedFileService/GetUserFiles/v1/?key={}&appid={APP_ID}&steamid={}&numperpage=100", api_key, steamid);
+	let url = format!("/IPublishedFileService/GetUserFiles/v1/?key={}&appid={APP_ID}&steamid={}&numperpage=100&return_short_description=false&return_children=true", api_key, steamid);
 	let res = get_steam::<ModListResponse>(&url).await?;
 
 	if let Some(files) = res.publishedfiledetails.as_ref() {
