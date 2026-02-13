@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n\t\tSELECT parent_mod_id, child_mod_id\n\t\tFROM mod_children\n\t\tWHERE parent_mod_id = ANY($1)\n\t\t",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "parent_mod_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "child_mod_id",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8Array"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "72ed4c84bd71d07dc1f0db90c45ff96481b8aa44f54f806712ed3a1fbe2c84f2"
+}

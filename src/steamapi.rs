@@ -183,10 +183,10 @@ pub struct SteamUserInfo {
 	pub avatarfull: String,
 	pub avatarhash: String,
 	pub lastlogoff: Option<u64>,
-	pub personastate: u32,
-	pub primaryclanid: String,
-	pub timecreated: u64,
-	pub personastateflags: u32,
+	pub personastate: Option<u32>,
+	pub primaryclanid: Option<String>,
+	pub timecreated: Option<u64>,
+	pub personastateflags: Option<u32>,
 	pub loccountrycode: Option<String>,
 }
 

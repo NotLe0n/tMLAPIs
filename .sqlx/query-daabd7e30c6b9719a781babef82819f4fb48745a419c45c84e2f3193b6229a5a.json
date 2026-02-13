@@ -1,0 +1,35 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n\t\tINSERT INTO mods (\n\t\t\tmod_id, display_name, internal_name, author, author_id,\n\t\t\tmodside, homepage, mod_references, num_versions,\n\t\t\ttime_created, time_updated, workshop_icon_url, description,\n\t\t\tdownloads_total, favorited, followers, views,\n\t\t\tplaytime, num_comments, votes_up, votes_down, score\n\t\t)\n\t\tSELECT *\n\t\tFROM UNNEST(\n\t\t\t$1::BIGINT[], $2::TEXT[], $3::TEXT[], $4::TEXT[], $5::BIGINT[],\n\t\t\t$6::TEXT[], $7::TEXT[], $8::TEXT[], $9::INT[],\n\t\t\t$10::BIGINT[], $11::BIGINT[], $12::TEXT[], $13::TEXT[],\n\t\t\t$14::INT[], $15::INT[], $16::INT[], $17::BIGINT[],\n\t\t\t$18::TEXT[], $19::INT[], $20::int[], $21::int[], $22::float8[]\n\t\t)\n\t\t",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8Array",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "Int8Array",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "Int4Array",
+        "Int8Array",
+        "Int8Array",
+        "TextArray",
+        "TextArray",
+        "Int4Array",
+        "Int4Array",
+        "Int4Array",
+        "Int8Array",
+        "TextArray",
+        "Int4Array",
+        "Int4Array",
+        "Int4Array",
+        "Float8Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "daabd7e30c6b9719a781babef82819f4fb48745a419c45c84e2f3193b6229a5a"
+}

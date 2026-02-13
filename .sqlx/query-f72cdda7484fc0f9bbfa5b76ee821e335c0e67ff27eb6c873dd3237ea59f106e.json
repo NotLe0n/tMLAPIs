@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "TRUNCATE mods CASCADE",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "f72cdda7484fc0f9bbfa5b76ee821e335c0e67ff27eb6c873dd3237ea59f106e"
+}

@@ -1,0 +1,27 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n\t\tINSERT INTO mod_history (\n\t\t\tmod_id, \n\t\t\tauthor_id,\n\t\t\tdate, \n\t\t\tdownloads_total,\n\t\t\tviews,\n\t\t\tfollowers,\n\t\t\tfavorited,\n\t\t\tvotes_up,\n\t\t\tvotes_down,\n\t\t\tscore,\n\t\t\tnum_comments,\n\t\t\tplaytime,\n\t\t\ttime_updated,\n\t\t\tversion\n\t\t)\n\t\tSELECT * FROM UNNEST(\n\t\t\t$1::bigint[], \n\t\t\t$2::bigint[],\n\t\t\t$3::date[], \n\t\t\t$4::int[], \n\t\t\t$5::bigint[], \n\t\t\t$6::int[],\n\t\t\t$7::int[],\n\t\t\t$8::int[],\n\t\t\t$9::int[],\n\t\t\t$10::float8[],\n\t\t\t$11::int[],\n\t\t\t$12::bigint[],\n\t\t\t$13::bigint[],\n\t\t\t$14::text[]\n\t\t)\n\t\t",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8Array",
+        "Int8Array",
+        "DateArray",
+        "Int4Array",
+        "Int8Array",
+        "Int4Array",
+        "Int4Array",
+        "Int4Array",
+        "Int4Array",
+        "Float8Array",
+        "Int4Array",
+        "Int8Array",
+        "Int8Array",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7b59d33fc948ef4e031adc20f772e758e9338b954e488c54e0a252575ae3e5b8"
+}

@@ -1,0 +1,176 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n\t\tSELECT * FROM mods \n\t\tLEFT JOIN mod_socials USING (mod_id)\n\t\t",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "mod_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "display_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "internal_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "author",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "author_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 5,
+        "name": "modside",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "homepage",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "mod_references",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "num_versions",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 9,
+        "name": "time_created",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 10,
+        "name": "time_updated",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 11,
+        "name": "workshop_icon_url",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 12,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 13,
+        "name": "downloads_total",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 14,
+        "name": "favorited",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 15,
+        "name": "followers",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 16,
+        "name": "views",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 17,
+        "name": "playtime",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 18,
+        "name": "num_comments",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 19,
+        "name": "score",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 20,
+        "name": "votes_up",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 21,
+        "name": "votes_down",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 22,
+        "name": "youtube",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 23,
+        "name": "twitter",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 24,
+        "name": "reddit",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 25,
+        "name": "facebook",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 26,
+        "name": "sketchfab",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "eee296966de853df82cf638c4d18135c09090a97ca5e36c82dd56b82f2f5bcb1"
+}
