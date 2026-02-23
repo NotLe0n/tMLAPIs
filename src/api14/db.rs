@@ -76,7 +76,7 @@ pub async fn update_db(db: &PgPool, steam_api_key: &str) -> Result<(), APIError>
 
 // returns true if the number of mods in the mod_history table for the current day is above zero
 pub async fn check_if_updated(db: &PgPool) -> Result<bool, APIError> {
-	let cnt = sqlx::query_scalar!(
+	let cnt: Option<i64> = sqlx::query_scalar!(
 		"SELECT COUNT(mod_id) FROM mod_history WHERE date = CURRENT_DATE"
 	).fetch_one(db).await?;
 	return Ok(cnt.is_some_and(|x| x > 0));
