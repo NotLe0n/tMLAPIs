@@ -18,7 +18,7 @@ use rocket::response::content::RawHtml;
 use rocket::fs::FileServer;
 
 use chrono::Utc;
-use clokwerk::{AsyncScheduler, Job, TimeUnits};
+use clokwerk::{AsyncScheduler, TimeUnits};
 use rocket::tokio;
 use std::sync::Arc;
 use std::time::Duration;
@@ -75,15 +75,16 @@ async fn main() -> Result<(), rocket::Error>{
 
 	let mut scheduler = AsyncScheduler::with_tz(Utc);
 
-	scheduler.every(1.day()).at("10:00").and_every(1.day()).at("22:00").run(move || {
+	scheduler.every(2.hour()).run(move || {
 		let pool = Arc::clone(&pool);
 		let steam_api_key = Arc::clone(&steam_api_key);
 
 		async move {
-			log::info!("Running db update");
+			log::info!("Running DB schedule");
 			if let Err(e) = api14::db::update_db(&pool, &steam_api_key).await {
 				log::error!("Could not update mod history: {e}");
 			}
+			log::info!("Finished DB schedule");
 		}
 	});
 

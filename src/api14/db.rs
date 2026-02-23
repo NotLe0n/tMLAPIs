@@ -49,13 +49,37 @@ pub async fn create_pool() -> PgPool {
 }
 
 pub async fn update_db(db: &PgPool, steam_api_key: &str) -> Result<(), APIError> {
-	let mods = mod_api::get_filtered_mod_list(steam_api_key).await?;
+	let hour = Utc::now().hour();
 
+	// update mods table every two hours
+	log::info!("Updating mods table");
+
+	let mods = mod_api::get_filtered_mod_list(steam_api_key).await?;
 	update_mod_list(&mods, db).await?;
-	if Utc::now().hour() < 22 {
-		update_mod_history(&mods, db).await?;
+	log::info!("Finished updating mods table");
+
+	// update mod_history table at 10:00UTC and retry every hour if it didn't work
+	if hour >= 10 {
+		if !check_if_updated(db).await? {
+			if hour > 10 {
+				log::warn!("mod_history not updated after 10 UTC!")
+			}
+			log::info!("Updating mod_history table");
+			update_mod_history(&mods, db).await?;
+			log::info!("Finished updating mod_history table");
+		} else {
+			log::info!("mod_history already updated")
+		}
 	}
 	Ok(())
+}
+
+// returns true if the number of mods in the mod_history table for the current day is above zero
+pub async fn check_if_updated(db: &PgPool) -> Result<bool, APIError> {
+	let cnt = sqlx::query_scalar!(
+		"SELECT COUNT(mod_id) FROM mod_history WHERE date = CURRENT_DATE"
+	).fetch_one(db).await?;
+	return Ok(cnt.is_some_and(|x| x > 0));
 }
 
 pub async fn update_mod_history(mods: &Vec<ModInfo>, db: &PgPool) -> Result<(), APIError> {
