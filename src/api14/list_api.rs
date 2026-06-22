@@ -13,13 +13,13 @@ use super::{responses::*, Api14State};
 #[get("/list")]
 pub async fn list_1_4(state: &State<Api14State>) -> Result<Value, APIError> {
 	let db: &PgPool = &state.db;
-	
+
 	let mut tx: Transaction<Postgres> = db.begin().await?;
 
 	// get all mods
 	let rows: Vec<ModsRow> = sqlx::query_as!(ModsRow,
 		r#"
-		SELECT * FROM mods 
+		SELECT * FROM mods
 		LEFT JOIN mod_socials USING (mod_id)
 		"#
 	).fetch_all(&mut *tx).await?;
@@ -91,7 +91,7 @@ pub async fn list_1_4(state: &State<Api14State>) -> Result<Value, APIError> {
 
 	let mut mods = Vec::with_capacity(rows.len());
 
-	for row in rows {	
+	for row in rows {
 		mods.push(ModInfo {
 			display_name: row.display_name,
 			internal_name: row.internal_name,
@@ -145,23 +145,25 @@ pub async fn list_authors(state: &State<Api14State>) -> Result<Value, APIError> 
 		r#"
 		SELECT
 			json_build_object(
-				'author_id', author_id::text,
-				'author_names', array_agg(DISTINCT author),
+				'author_id', a.author_id::text,
+				'author_names', a.author_names,
 				'mods', json_agg(
 					json_build_object(
-						'mod_id', mod_id,
-						'display_name', display_name,
-						'internal_name', internal_name
+						'mod_id', am.mod_id,
+						'display_name', am.display_name,
+						'internal_name', am.internal_name
 					)
-					ORDER BY display_name
+					ORDER BY am.display_name
 				),
-				'total_downloads', SUM(downloads_total)::BIGINT,
-				'total_views', SUM(views)::BIGINT,
-				'total_favorited', SUM(favorited)::BIGINT
+				'total_mods', COUNT(am.mod_id),
+				'total_downloads', a.total_downloads,
+				'total_views', a.total_views,
+				'total_favorited', a.total_favorited
 			) AS result
-		FROM mods
-		GROUP BY author_id
-		ORDER BY SUM(downloads_total) DESC
+		FROM authors a
+		JOIN author_mods am USING (author_id)
+		GROUP BY a.author_id
+		ORDER BY a.total_downloads DESC
 		"#
 	)
 	.fetch_all(db)

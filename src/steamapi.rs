@@ -115,9 +115,9 @@ pub struct PublishedFileDetails {
 	pub workshop_file: Option<bool>,
 	pub children: Option<Vec<Child>>,
 	// 1: NudityOrSexualContent, 2: FrequentViolenceOrGore, 3: AdultOnlySexualContent, 4: GratuitousSexualContent, 5: AnyMatureContent
-	pub content_descriptorids: Option<Vec<u32>>, 
+	pub content_descriptorids: Option<Vec<u32>>,
 	pub available_revisions: Option<Vec<u32>>,
-	
+
 	#[serde(flatten)]
     extra: HashMap<String, Value>,
 }
@@ -220,11 +220,23 @@ pub async fn get_user_mods(steamid: u64, api_key: &str) -> Result<ModListRespons
 	if let Some(files) = res.publishedfiledetails.as_ref() {
 		check_missing_fields(files);
 	}
-	
+
 	Ok(res)
 }
 
-pub async fn get_mod_info(modid: u64 , api_key: &str) -> Result<PublishedFileDetails, APIError> {
+pub async fn get_user_mods_client(client: &reqwest::Client, steamid: u64, api_key: &str) -> Result<ModListResponse, APIError> {
+	let url = format!("{STEAM_API_URL}/IPublishedFileService/GetUserFiles/v1/?key={}&appid={APP_ID}&steamid={}&numperpage=100&return_short_description=false&return_children=true", api_key, steamid);
+	let res = client.get(url).send().await?;
+    let mod_list = res.json::<Response<ModListResponse>>().await?.response;
+
+    if let Some(files) = mod_list.publishedfiledetails.as_ref() {
+		check_missing_fields(files);
+	}
+
+	Ok(mod_list)
+}
+
+pub async fn get_mod_info(modid: u64, api_key: &str) -> Result<PublishedFileDetails, APIError> {
 	let url = format!("/IPublishedFileService/GetDetails/v1/?key={api_key}&appid={APP_ID}\
 		&publishedfileids%5B0%5D={modid}\
 		&includekvtags=true\
@@ -233,7 +245,7 @@ pub async fn get_mod_info(modid: u64 , api_key: &str) -> Result<PublishedFileDet
 		&includevotes=true"
 	);
 	let res = get_steam::<ModResponse>(&url).await?;
-	
+
 	match res.publishedfiledetails[0].clone() {
 		SteamResult::Ok(pfd) => {
 			if !pfd.extra.is_empty() {
@@ -248,7 +260,7 @@ pub async fn get_mod_info(modid: u64 , api_key: &str) -> Result<PublishedFileDet
 pub async fn modname_to_modid(modname: &str, api_key: &str) -> Result<u64, APIError> {
 	let url = format!(r#"/IPublishedFileService/QueryFiles/v1/?key={api_key}&appid={APP_ID}&input_json={{"required_kv_tags":[{{"key":"name","value":"{modname}"}}]}}"#);
 	let res = get_steam::<ModIDListResponse>(&url).await?;
-	
+
 	match res.publishedfiledetails {
 		Some(pfd) => Ok(pfd[0].publishedfileid.parse().unwrap()),
 		None => Err(APIError::InvalidModName(modname.to_owned()))
@@ -282,7 +294,7 @@ pub async fn get_mod_list(client: &reqwest::Client, cursor: &str, api_key: &str)
 pub async fn steamname_to_steamid(steamname: &str, api_key: &str) -> Result<u64, APIError> {
 	let url = format!("/ISteamUser/ResolveVanityURL/v1/?key={}&vanityurl={}", api_key, steamname);
 	let res: IDResponse = get_steam(&url).await?;
-	
+
 	match res.steamid {
 		Some(id) => Ok(id.parse().unwrap()),
 		None => Err(APIError::SteamNameNotResolveable(steamname.to_owned()))
@@ -292,7 +304,7 @@ pub async fn steamname_to_steamid(steamname: &str, api_key: &str) -> Result<u64,
 pub async fn get_user_info(steamid: u64, api_key: &str) -> Result<SteamUserInfo, APIError> {
 	let url = format!("/ISteamUser/GetPlayerSummaries/v2/?key={}&steamids={}", api_key, steamid);
 	let res: SteamUserInfoResponse = get_steam(&url).await?;
-	
+
 	match res.players.first() {
 		Some(user) => Ok(user.clone()),
 		None => Err(APIError::SteamIDNotFound(steamid))
@@ -303,7 +315,7 @@ pub async fn get_users_info(steamids: &[u64], api_key: &str) -> Result<Vec<Steam
 	let steamids_csv = steamids.iter().map(u64::to_string).collect::<Vec<_>>().join(",");
 	let url = format!("/ISteamUser/GetPlayerSummaries/v2/?key={}&steamids={}", api_key, steamids_csv);
 	let res: SteamUserInfoResponse = get_steam(&url).await?;
-	
+
 	return Ok(res.players);
 }
 

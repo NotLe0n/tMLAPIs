@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n\t\t\tINSERT INTO author_mods (author_id, mod_id, display_name, internal_name)\n\t\t\tSELECT * FROM UNNEST($1::BIGINT[], $2::BIGINT[], $3::TEXT[], $4::TEXT[])\n\t\t\tON CONFLICT DO NOTHING\n\t\t\t",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8Array",
+        "Int8Array",
+        "TextArray",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "505e51f9d67a9aa61a4990678ceadca341251d921bd48ef8ecef62700f0b8073"
+}

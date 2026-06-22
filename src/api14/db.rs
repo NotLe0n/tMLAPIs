@@ -1,11 +1,11 @@
 use crate::{
 	api_error::APIError,
-	api14::{mod_api, responses::ModInfo},
+	api14::{mod_api, responses::ModInfo}, steamapi,
 };
 use chrono::{Timelike, Utc};
 use rocket::serde::Serialize;
 use sqlx::{PgPool, Postgres, Transaction, postgres::PgPoolOptions};
-use std::time::Duration;
+use std::{collections::{HashMap, HashSet}, time::Duration};
 
 #[derive(Debug, Serialize, sqlx::FromRow)]
 #[serde(crate = "rocket::serde")]
@@ -43,7 +43,7 @@ pub async fn create_pool() -> PgPool {
 	PgPoolOptions::new()
 		.max_connections(10)
 		.acquire_timeout(Duration::from_secs(5))
-		.connect(&std::env::var("DATABASE_URL").unwrap())
+		.connect(&std::env::var("DATABASE_URL").expect("the 'DATABASE_URL' environment variable could not be read"))
 		.await
 		.expect("Failed to connect to database")
 }
@@ -52,6 +52,7 @@ pub async fn update_db(db: &PgPool, steam_api_key: &str) -> Result<(), APIError>
 	let mods = mod_api::get_filtered_mod_list(steam_api_key).await?;
 
 	update_mod_list(&mods, db).await?;
+	update_authors(&mods, db, steam_api_key).await?;
 	if Utc::now().hour() < 22 {
 		update_mod_history(&mods, db).await?;
 	}
@@ -102,9 +103,9 @@ pub async fn update_mod_history(mods: &Vec<ModInfo>, db: &PgPool) -> Result<(), 
 	sqlx::query!(
 		r#"
 		INSERT INTO mod_history (
-			mod_id, 
+			mod_id,
 			author_id,
-			date, 
+			date,
 			downloads_total,
 			views,
 			followers,
@@ -118,11 +119,11 @@ pub async fn update_mod_history(mods: &Vec<ModInfo>, db: &PgPool) -> Result<(), 
 			version
 		)
 		SELECT * FROM UNNEST(
-			$1::bigint[], 
+			$1::bigint[],
 			$2::bigint[],
-			$3::date[], 
-			$4::int[], 
-			$5::bigint[], 
+			$3::date[],
+			$4::int[],
+			$5::bigint[],
 			$6::int[],
 			$7::int[],
 			$8::int[],
@@ -396,5 +397,130 @@ pub async fn update_mod_list(mods: &Vec<ModInfo>, db: &PgPool) -> Result<(), API
 
 	tx.commit().await?;
 
+	Ok(())
+}
+
+pub async fn update_authors(mods: &[ModInfo], db: &PgPool, steam_api_key: &str) -> Result<(), APIError> {
+	let mod_map: HashMap<u64, &ModInfo> = mods.iter().map(|m| (m.mod_id, m)).collect();
+
+	let unique_author_ids = mods.iter()
+		.filter_map(|m| m.author_id.parse::<u64>().ok())
+		.collect::<HashSet<_>>();
+
+	log::info!("Updating authors for {} unique steam IDs", unique_author_ids.len());
+
+	struct AuthorEntry<'a> {
+		author_id: i64,
+		author_names: Vec<String>,
+		total_downloads: i64,
+		total_views: i64,
+		total_favorited: i64,
+		mods: Vec<&'a ModInfo>,
+	}
+
+	use futures::StreamExt;
+	let client = reqwest::Client::new();
+
+	let raw_results: Vec<(u64, Result<steamapi::ModListResponse, APIError>)> =
+		futures::stream::iter(unique_author_ids)
+			.map(|author_id| {
+				let client = client.clone();
+				async move {
+					(author_id, steamapi::get_user_mods_client(&client, author_id, steam_api_key).await)
+				}
+			})
+			.buffer_unordered(20)
+			.collect()
+			.await;
+
+	let mut entries: Vec<AuthorEntry> = Vec::new();
+
+	for (author_id, result) in raw_results {
+		let user_mods = match result {
+			Ok(r) => r,
+			Err(e) => {
+				log::warn!("Skipping author {}: {:?}", author_id, e);
+				continue;
+			}
+		};
+
+		let steam_mod_ids: Vec<u64> = user_mods.publishedfiledetails
+			.unwrap_or_default()
+			.into_iter()
+			.filter_map(|pfd| pfd.publishedfileid?.parse().ok())
+			.collect();
+
+		let author_mods: Vec<&ModInfo> = steam_mod_ids.iter()
+			.filter_map(|id| mod_map.get(id).copied())
+			.collect();
+
+		if author_mods.is_empty() {
+			continue;
+		}
+
+		let author_names: Vec<String> = author_mods.iter()
+			.map(|m| m.author.clone())
+			.collect::<HashSet<_>>()
+			.into_iter()
+			.collect();
+
+		entries.push(AuthorEntry {
+			author_id: author_id as i64,
+			author_names,
+			total_downloads: author_mods.iter().map(|m| m.downloads_total as i64).sum(),
+			total_views: author_mods.iter().map(|m| m.views as i64).sum(),
+			total_favorited: author_mods.iter().map(|m| m.favorited as i64).sum(),
+			mods: author_mods,
+		});
+	}
+
+	let mut am_author_ids: Vec<i64> = Vec::new();
+	let mut am_mod_ids: Vec<i64> = Vec::new();
+	let mut am_display_names: Vec<String> = Vec::new();
+	let mut am_internal_names: Vec<String> = Vec::new();
+
+	for entry in &entries {
+		for m in &entry.mods {
+			am_author_ids.push(entry.author_id);
+			am_mod_ids.push(m.mod_id as i64);
+			am_display_names.push(m.display_name.clone());
+			am_internal_names.push(m.internal_name.clone());
+		}
+	}
+
+	let mut tx = db.begin().await?;
+
+	sqlx::query!("TRUNCATE authors CASCADE").execute(&mut *tx).await?;
+
+	for entry in &entries {
+		sqlx::query!(
+			r#"
+			INSERT INTO authors (author_id, author_names, total_downloads, total_views, total_favorited)
+			VALUES ($1, $2, $3, $4, $5)
+			"#,
+			entry.author_id,
+			&entry.author_names as &[String],
+			entry.total_downloads,
+			entry.total_views,
+			entry.total_favorited
+		).execute(&mut *tx).await?;
+	}
+
+	if !am_author_ids.is_empty() {
+		sqlx::query!(
+			r#"
+			INSERT INTO author_mods (author_id, mod_id, display_name, internal_name)
+			SELECT * FROM UNNEST($1::BIGINT[], $2::BIGINT[], $3::TEXT[], $4::TEXT[])
+			ON CONFLICT DO NOTHING
+			"#,
+			&am_author_ids,
+			&am_mod_ids,
+			&am_display_names,
+			&am_internal_names
+		).execute(&mut *tx).await?;
+	}
+
+	tx.commit().await?;
+	log::info!("Updated {} authors", entries.len());
 	Ok(())
 }

@@ -12,6 +12,7 @@ struct ErrorResponse {
 	message: String,
 }
 
+#[derive(Debug)]
 pub enum APIError {
 	JSONError(String),
 	ReqwestError(String),
@@ -24,9 +25,9 @@ pub enum APIError {
 	DBError(String)
 }
 
-impl std::fmt::Display for APIError {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		f.write_str(match self {
+impl APIError {
+	fn get_identifier(&self) -> &str {
+		return match self {
 			APIError::JSONError(_) => "JSONError",
 			APIError::ReqwestError(_) => "ReqwestError",
 			APIError::SteamNameNotResolveable(_) => "SteamNameNotResolveable",
@@ -36,7 +37,35 @@ impl std::fmt::Display for APIError {
 			APIError::InvalidModID(_) => "InvalidModID",
 			APIError::ScrapeError(_) => "ScrapeError",
 			APIError::DBError(_) => "DBError"
-		})
+		};
+	}
+
+	fn get_message(&self) -> String {
+		return match self {
+			APIError::ScrapeError(msg) => format!("Could not scrape html: '{}'", msg),
+			APIError::JSONError(msg) => format!("Could not parse request: '{}'", msg),
+			APIError::ReqwestError(msg) => format!("Could not parse json: '{}'", msg),
+			APIError::SteamNameNotResolveable(name) => format!("No steamid found for the specified steam name of: '{}'", name),
+			APIError::SteamIDNotFound(steamid) => format!("No steam user found for the specified steam id of: '{}'", steamid),
+			APIError::InvalidSteamID(steamid) => format!("The steamid '{}' is invalid", steamid),
+			APIError::InvalidModName(name) => format!("Could not find a mod with the provided name: '{}'", name),
+			APIError::InvalidModID(id) => format!("Could not find a mod with the id '{}'", id),
+			APIError::DBError(msg) =>  format!("An Error occured accessing the Database: '{msg}'"),
+		}
+	}
+
+	fn get_status(&self) -> Status {
+		return match self {
+			APIError::ScrapeError(_) => Status::InternalServerError,
+			APIError::JSONError(_) => Status::InternalServerError,
+			APIError::ReqwestError(_) => Status::InternalServerError,
+			APIError::SteamNameNotResolveable(_) => Status::BadRequest,
+			APIError::SteamIDNotFound(_) => Status::BadRequest,
+			APIError::InvalidSteamID(_) => Status::BadRequest,
+			APIError::InvalidModName(_) => Status::BadRequest,
+			APIError::InvalidModID(_) => Status::BadRequest,
+			APIError::DBError(_) => Status::InternalServerError,
+		}
 	}
 }
 
@@ -70,25 +99,13 @@ impl From<sqlx::Error> for APIError {
 
 impl<'r> Responder<'r, 'static> for APIError {
 	fn respond_to(self, req: &'r Request<'_>) -> response::Result<'static> {
-		let (status, message) = match &self {
-			APIError::ScrapeError(msg) => (Status::InternalServerError, format!("Could not scrape html: '{}'", msg)),
-			APIError::JSONError(msg) => (Status::InternalServerError, format!("Could not parse request: '{}'", msg)),
-			APIError::ReqwestError(msg) => (Status::InternalServerError, format!("Could not parse json: '{}'", msg)),
-			APIError::SteamNameNotResolveable(name) => (Status::BadRequest, format!("No steamid found for the specified steam name of: '{}'", name)),
-			APIError::SteamIDNotFound(steamid) => (Status::BadRequest, format!("No steam user found for the specified steam id of: '{}'", steamid)),
-			APIError::InvalidSteamID(steamid) => (Status::BadRequest, format!("The steamid '{}' is invalid", steamid)),
-			APIError::InvalidModName(name) => (Status::BadRequest, format!("Could not find a mod with the provided name: '{}'", name)),
-			APIError::InvalidModID(id) => (Status::BadRequest, format!("Could not find a mod with the id '{}'", id)),
-			APIError::DBError(msg) => (Status::InternalServerError, format!("An Error occured accessing the Database: '{msg}'")),
-		};
-
 		let body = Json(ErrorResponse {
-			error: format!("{}", self),
-			message,
+			error: format!("{}", self.get_identifier()),
+			message: self.get_message(),
 		});
 
 		Response::build_from(body.respond_to(req)?)
-			.status(status)
+			.status(self.get_status())
 			.ok()
 	}
 }

@@ -17,12 +17,12 @@ scraper = "0.18.1"
 rocket-cache-response = "0.6.2"
 urlencoding = "2.1.2"
 log = "0.4"
+env_logger = "0.11"
 sqlx = { version = "0.8.6", features = [ "runtime-tokio", "postgres", "chrono", "json" ] }
 chrono = { version = "0.4.43", features = ["serde"] }
 clokwerk = "0.4.0"
+futures = "0.3"
 
 [profile.release]
-opt-level = 'z'     # Optimize for size
-lto = true          # Enable link-time optimization
-codegen-units = 1   # Reduce number of codegen units to increase optimizations
-strip = true        # Strip symbols from binary*
+opt-level = 3
+strip = true      # Strip symbols from binary
