@@ -66,12 +66,23 @@ fn index_img() -> RawHtml<&'static str>{
 }
 
 #[rocket::main]
-async fn main() -> Result<(), rocket::Error>{
+async fn main() -> Result<(), rocket::Error> {
 	let steam_api_key = Arc::new(std::env::var("STEAM_API_KEY").expect("the 'STEAM_API_KEY' environment variable could not be read"));
 	let pool = Arc::new(api14::db::create_pool().await);
 
 	let api13_state = Api13State::init(Arc::clone(&steam_api_key));
 	let api14_state = Api14State::init(Arc::clone(&steam_api_key), Arc::clone(&pool));
+
+	let args: Vec<String> = std::env::args().collect();
+	if args.len() > 1 && args[1] == "--update-now" {
+		env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
+		log::info!("Updating DB now!");
+
+		let result = api14::db::update_db(&pool, &steam_api_key).await;
+		if let Err(e) = result {
+			eprintln!("An error occured updating the DB: {:?}", e)
+		}
+	}
 
 	let mut scheduler = AsyncScheduler::with_tz(Utc);
 
@@ -82,7 +93,7 @@ async fn main() -> Result<(), rocket::Error>{
 		async move {
 			log::info!("Running DB schedule");
 			if let Err(e) = api14::db::update_db(&pool, &steam_api_key).await {
-				log::error!("Could not update mod history: {e}");
+				log::error!("Could not update mod history: {:?}", e);
 			}
 			log::info!("Finished DB schedule");
 		}

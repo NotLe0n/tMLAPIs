@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n\t\tSELECT * FROM mods \n\t\tLEFT JOIN mod_socials USING (mod_id)\n\t\t",
+  "query": "\n\t\tSELECT * FROM mods\n\t\tLEFT JOIN mod_socials USING (mod_id)\n\t\t",
   "describe": {
     "columns": [
       {
@@ -172,5 +172,5 @@
       true
     ]
   },
-  "hash": "eee296966de853df82cf638c4d18135c09090a97ca5e36c82dd56b82f2f5bcb1"
+  "hash": "711a96981cf223386b0b4ffc6fc1552a7df484e55e63d04972996a1cfc3bd806"
 }

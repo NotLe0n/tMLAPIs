@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS author_mods;
+DROP TABLE IF EXISTS authors;

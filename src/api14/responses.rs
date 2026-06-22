@@ -1,15 +1,6 @@
 use rocket::serde::{Serialize, Deserialize};
 use crate::steamapi;
 
-#[derive(Serialize, Deserialize)]
-#[serde(crate = "rocket::serde")]
-pub enum ModSide {
-	Both,
-	Client,
-	Server,
-	NoSync
-}
-
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(crate = "rocket::serde")]
 pub struct ModVersion {

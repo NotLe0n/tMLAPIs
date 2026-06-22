@@ -11,7 +11,7 @@ use super::{responses::*, Api14State};
 pub fn index_mod_1_4() -> RawHtml<&'static str> {
 	RawHtml(r#"
 		<form action="javascript: window.location.href += '/' + document.getElementById('input').value">
-			<h1>Mod info (<a href="https://github.com/NotLe0n/tMLAPIs/wiki/1.4-mod">Docs</a>)</h1> 
+			<h1>Mod info (<a href="https://github.com/NotLe0n/tMLAPIs/wiki/1.4-mod">Docs</a>)</h1>
 
 			<label for="input">Mod ID or name:</label>
 			<input type="text" id="input">
@@ -61,6 +61,7 @@ pub fn get_filtered_mod_info(publishedfiledetail: &steamapi::PublishedFileDetail
 				"modloaderversion"  => deprecated_version_tmodloader = value,
 				"versionsummary"    => version_summary = value,
 				"modreferences"     => mod_references = value,
+				"app_workshop_eula_version" => (), // don't care about this info, ignore warnings
 				"youtube"           => youtube = (!value.is_empty()).then_some(value),
 				"twitter"           => twitter = (!value.is_empty()).then_some(value),
 				"reddit"            => reddit = (!value.is_empty()).then_some(value),
@@ -87,11 +88,11 @@ pub fn get_filtered_mod_info(publishedfiledetail: &steamapi::PublishedFileDetail
 		}).collect()
 	};
 
-	let socials: Option<ModSocials> = 
+	let socials: Option<ModSocials> =
 		if youtube == None && twitter == None && reddit == None && facebook == None && sketchfab == None {
 			None
-		} else { 
-			Some(ModSocials { 
+		} else {
+			Some(ModSocials {
 				youtube,
 				twitter,
 				reddit,
@@ -100,7 +101,7 @@ pub fn get_filtered_mod_info(publishedfiledetail: &steamapi::PublishedFileDetail
 			})
 		 };
 
-	let children = publishedfiledetail.children.map(|children| 
+	let children = publishedfiledetail.children.map(|children|
 		children.iter()
 			.filter_map(|c| c.publishedfileid.parse().ok())
 			.collect()
@@ -133,7 +134,7 @@ pub fn get_filtered_mod_info(publishedfiledetail: &steamapi::PublishedFileDetail
 		num_comments: publishedfiledetail.num_comments_public.unwrap_or_default(),
 		socials,
 	}
-	
+
 }
 
 
