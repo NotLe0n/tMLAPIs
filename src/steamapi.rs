@@ -214,22 +214,40 @@ pub async fn get_mod_count(api_key: &str) -> Result<CountResponse, APIError> {
 }
 
 pub async fn get_user_mods(steamid: u64, api_key: &str) -> Result<ModListResponse, APIError> {
-	let url = format!("/IPublishedFileService/GetUserFiles/v1/?key={}&appid={APP_ID}&steamid={}&numperpage=100&return_short_description=false&return_children=true", api_key, steamid);
-	let res = get_steam::<ModListResponse>(&url).await?;
-
-	if let Some(files) = res.publishedfiledetails.as_ref() {
-		check_missing_fields(files);
-	}
-
-	Ok(res)
+	let client = reqwest::Client::new();
+	get_user_mods_client(&client, steamid, api_key).await
 }
 
 pub async fn get_user_mods_client(client: &reqwest::Client, steamid: u64, api_key: &str) -> Result<ModListResponse, APIError> {
-	let url = format!("{STEAM_API_URL}/IPublishedFileService/GetUserFiles/v1/?key={}&appid={APP_ID}&steamid={}&numperpage=100&return_short_description=false&return_children=true", api_key, steamid);
-	let res = client.get(url).send().await?;
-    let mod_list = res.json::<Response<ModListResponse>>().await?.response;
+	let url = format!("{STEAM_API_URL}/IPublishedFileService/GetUserFiles/v1/?key={api_key}&appid={APP_ID}
+		&steamid={steamid}
+		&numperpage=100
+		&return_short_description=false
+		&return_children=true"
+	);
 
-    if let Some(files) = mod_list.publishedfiledetails.as_ref() {
+	log::debug!("Requesting SteamAPI at: {url}");
+	let res = client.get(&url).send().await?;
+	let mut mod_list = res.json::<Response<ModListResponse>>().await?.response;
+
+	if let Some(ref mut files) = mod_list.publishedfiledetails && mod_list.total > 100 {
+		let mut i = 2;
+		loop {
+			let url2 = format!("{url}&page={i}");
+			let res2 = client.get(&url2).send().await?;
+			log::debug!("Requesting SteamAPI at: {url2}");
+			let mod_list2 = res2.json::<Response<ModListResponse>>().await?.response;
+			if let Some(next_files) = mod_list2.publishedfiledetails {
+				files.extend(next_files);
+				i += 1;
+			}
+			else {
+				break;
+			}
+		}
+	}
+
+	if let Some(files) = mod_list.publishedfiledetails.as_ref() {
 		check_missing_fields(files);
 	}
 
