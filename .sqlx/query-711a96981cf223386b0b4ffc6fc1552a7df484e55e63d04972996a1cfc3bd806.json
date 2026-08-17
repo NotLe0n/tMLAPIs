@@ -70,7 +70,7 @@
       },
       {
         "ordinal": 13,
-        "name": "downloads_total",
+        "name": "subscriptions",
         "type_info": "Int4"
       },
       {
@@ -115,26 +115,46 @@
       },
       {
         "ordinal": 22,
-        "name": "youtube",
-        "type_info": "Text"
+        "name": "subscriptions_total",
+        "type_info": "Int4"
       },
       {
         "ordinal": 23,
-        "name": "twitter",
-        "type_info": "Text"
+        "name": "favorited_total",
+        "type_info": "Int4"
       },
       {
         "ordinal": 24,
-        "name": "reddit",
-        "type_info": "Text"
+        "name": "sessions",
+        "type_info": "Int4"
       },
       {
         "ordinal": 25,
-        "name": "facebook",
+        "name": "file_size",
         "type_info": "Text"
       },
       {
         "ordinal": 26,
+        "name": "youtube",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 27,
+        "name": "twitter",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 28,
+        "name": "reddit",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 29,
+        "name": "facebook",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 30,
         "name": "sketchfab",
         "type_info": "Text"
       }
@@ -156,6 +176,10 @@
       false,
       false,
       true,
+      false,
+      false,
+      false,
+      false,
       false,
       false,
       false,
