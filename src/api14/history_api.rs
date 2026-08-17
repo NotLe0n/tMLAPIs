@@ -59,7 +59,7 @@ async fn get_mod_history(modid: u64, db: &PgPool) -> Result<Value, APIError> {
 				'date', date,
 				'mod_id', mod_id,
 				'author_id', author_id::text,
-				'downloads_total', downloads_total,
+				'subscriptions', subscriptions,
 				'views', views,
 				'followers', followers,
 				'favorited', favorited,
@@ -69,6 +69,7 @@ async fn get_mod_history(modid: u64, db: &PgPool) -> Result<Value, APIError> {
 					'score', score
 				),
 				'num_comments', num_comments,
+				'sessions', sessions,
 				'playtime', playtime,
 				'time_updated', time_updated,
 				'version', version
@@ -104,7 +105,7 @@ pub async fn history_global(state: &State<Api14State>) -> Result<Value, APIError
 		r#"
 		SELECT 
 			json_build_object('date', date,
-				'downloads_total', SUM(downloads_total),
+				'subscriptions_total', SUM(subscriptions),
 				'views_total', SUM(views),
 				'followers_total', SUM(followers),
 				'favorited_total', SUM(favorited),
@@ -131,7 +132,7 @@ async fn get_author_history(steamid: u64, db: &PgPool) -> Result<Value, APIError
 				'date', date,
 				'mod_id', mod_id,
 				'author_id', author_id::text,
-				'downloads_total', downloads_total,
+				'subscriptions', subscriptions,
 				'views', views,
 				'followers', followers,
 				'favorited', favorited,

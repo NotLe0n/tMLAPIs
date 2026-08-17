@@ -37,14 +37,18 @@ pub struct ModInfo {
 	pub workshop_icon_url: String,
 	pub children: Option<Vec<u64>>,
 	pub description: Option<String>,
-	pub downloads_total: u32,
+	pub subscriptions_total: u32,
+	pub subscriptions: u32,
+	pub favorited_total: u32,
 	pub favorited: u32,
 	pub followers: u32,
 	pub views: u64,
 	pub vote_data: Option<steamapi::VoteData>,
 	pub playtime: String,
+	pub sessions: u32,
 	pub num_comments: u32,
-	pub socials: Option<ModSocials>
+	pub socials: Option<ModSocials>,
+	pub file_size: String
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -55,7 +59,7 @@ pub struct AuthorInfo {
 	pub steam_avatar: String,
 	pub mods: Vec<ModInfo>,
 	pub total: u32,
-	pub total_downloads: u64,
+	pub total_subscriptions: u64,
 	pub total_favorites: u64,
 	pub total_views: u64,
 }

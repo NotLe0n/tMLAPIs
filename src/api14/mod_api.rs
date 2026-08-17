@@ -125,14 +125,18 @@ pub fn get_filtered_mod_info(publishedfiledetail: &steamapi::PublishedFileDetail
 		workshop_icon_url: publishedfiledetail.preview_url.unwrap_or_default(),
 		children: children,
 		description: publishedfiledetail.file_description,
-		downloads_total: publishedfiledetail.subscriptions.unwrap_or_default(),
+		subscriptions_total: publishedfiledetail.lifetime_subscriptions.unwrap_or_default(),
+		subscriptions: publishedfiledetail.subscriptions.unwrap_or_default(),
+		favorited_total: publishedfiledetail.lifetime_favorited.unwrap_or_default(),
 		favorited: publishedfiledetail.favorited.unwrap_or_default(),
 		views: publishedfiledetail.views.unwrap_or_default(),
 		playtime: publishedfiledetail.lifetime_playtime.unwrap_or_default(),
+		sessions: publishedfiledetail.lifetime_playtime_sessions.unwrap_or_default().parse().unwrap_or_default(),
 		followers: publishedfiledetail.followers.unwrap_or_default(),
 		vote_data: publishedfiledetail.vote_data,
 		num_comments: publishedfiledetail.num_comments_public.unwrap_or_default(),
 		socials,
+		file_size: publishedfiledetail.file_size.unwrap_or_default(),
 	}
 
 }
