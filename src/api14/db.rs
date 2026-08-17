@@ -23,11 +23,14 @@ pub struct ModsRow {
 	pub time_updated: i64,
 	pub workshop_icon_url: String,
 	pub description: Option<String>,
-	pub downloads_total: i32,
+	pub subscriptions_total: i32,
+	pub subscriptions: i32,
+	pub favorited_total: i32,
 	pub favorited: i32,
 	pub followers: i32,
 	pub views: i64,
 	pub playtime: String,
+	pub sessions: i32,
 	pub num_comments: i32,
 	pub score: f64,
 	pub votes_up: i32,
@@ -36,7 +39,8 @@ pub struct ModsRow {
 	pub twitter: Option<String>,
 	pub reddit: Option<String>,
 	pub facebook: Option<String>,
-	pub sketchfab: Option<String>
+	pub sketchfab: Option<String>,
+	pub file_size: String,
 }
 
 pub async fn create_pool() -> PgPool {
@@ -70,12 +74,13 @@ pub async fn update_mod_history(mods: &Vec<ModInfo>, db: &PgPool) -> Result<(), 
 	let capacity = mods.len();
 	let mut mod_ids = Vec::with_capacity(capacity);
 	let mut author_ids = Vec::with_capacity(capacity);
-	let mut downloads = Vec::with_capacity(capacity);
+	let mut subscriptions = Vec::with_capacity(capacity);
 	let mut views = Vec::with_capacity(capacity);
 	let mut followers = Vec::with_capacity(capacity);
 	let mut favorited = Vec::with_capacity(capacity);
 	let mut num_comments = Vec::with_capacity(capacity);
 	let mut time_updated = Vec::with_capacity(capacity);
+	let mut sessions = Vec::with_capacity(capacity);
 	let mut playtime = Vec::with_capacity(capacity);
 	let mut versions = Vec::with_capacity(capacity);
 	let mut votes_up = Vec::with_capacity(capacity);
@@ -85,12 +90,13 @@ pub async fn update_mod_history(mods: &Vec<ModInfo>, db: &PgPool) -> Result<(), 
 	for m in mods {
 		mod_ids.push(m.mod_id as i64);
 		author_ids.push(m.author_id.parse().unwrap_or_default());
-		downloads.push(m.downloads_total as i32);
+		subscriptions.push(m.subscriptions as i32);
 		views.push(m.views as i64);
 		followers.push(m.followers as i32);
 		favorited.push(m.favorited as i32);
 		num_comments.push(m.num_comments as i32);
 		time_updated.push(m.time_updated as i64);
+		sessions.push(m.sessions as i32);
 		playtime.push(str::parse::<i64>(&m.playtime).unwrap_or(0));
 		versions.push(m.versions.last().map(|v| v.mod_version.clone()));
 		votes_up.push(m.vote_data.as_ref().map(|v| v.votes_up as i32));
@@ -106,7 +112,7 @@ pub async fn update_mod_history(mods: &Vec<ModInfo>, db: &PgPool) -> Result<(), 
 			mod_id,
 			author_id,
 			date,
-			downloads_total,
+			subscriptions,
 			views,
 			followers,
 			favorited,
@@ -114,6 +120,7 @@ pub async fn update_mod_history(mods: &Vec<ModInfo>, db: &PgPool) -> Result<(), 
 			votes_down,
 			score,
 			num_comments,
+			sessions,
 			playtime,
 			time_updated,
 			version
@@ -130,15 +137,16 @@ pub async fn update_mod_history(mods: &Vec<ModInfo>, db: &PgPool) -> Result<(), 
 			$9::int[],
 			$10::float8[],
 			$11::int[],
-			$12::bigint[],
+			$12::int[],
 			$13::bigint[],
-			$14::text[]
+			$14::bigint[],
+			$15::text[]
 		)
 		"#,
 		&mod_ids,
 		&author_ids,
 		&dates,
-		&downloads,
+		&subscriptions,
 		&views,
 		&followers,
 		&favorited,
@@ -146,6 +154,7 @@ pub async fn update_mod_history(mods: &Vec<ModInfo>, db: &PgPool) -> Result<(), 
 		&votes_down as &[Option<i32>],
 		&score as &[Option<f64>],
 		&num_comments,
+		&sessions,
 		&playtime,
 		&time_updated,
 		&versions as &[Option<String>]
@@ -179,11 +188,14 @@ pub async fn update_mod_list(mods: &Vec<ModInfo>, db: &PgPool) -> Result<(), API
 	let mut time_updated = Vec::with_capacity(len);
 	let mut icons = Vec::with_capacity(len);
 	let mut descriptions = Vec::with_capacity(len);
-	let mut downloads = Vec::with_capacity(len);
+	let mut subscriptions_total = Vec::with_capacity(len);
+	let mut subscriptions = Vec::with_capacity(len);
+	let mut favorited_total = Vec::with_capacity(len);
 	let mut favorited = Vec::with_capacity(len);
 	let mut followers = Vec::with_capacity(len);
 	let mut views = Vec::with_capacity(len);
 	let mut playtimes = Vec::with_capacity(len);
+	let mut sessions = Vec::with_capacity(len);
 	let mut comments = Vec::with_capacity(len);
 	let mut votes_up = Vec::with_capacity(len);
 	let mut votes_down = Vec::with_capacity(len);
@@ -207,6 +219,8 @@ pub async fn update_mod_list(mods: &Vec<ModInfo>, db: &PgPool) -> Result<(), API
 	let mut facebook_links = Vec::new();
 	let mut sketchfab_links = Vec::new();
 
+	let mut file_sizes = Vec::new();
+
 	for m in mods.into_iter() {
 		ids.push(m.mod_id as i64);
 		display_names.push(m.display_name.clone());
@@ -221,10 +235,13 @@ pub async fn update_mod_list(mods: &Vec<ModInfo>, db: &PgPool) -> Result<(), API
 		time_updated.push(m.time_updated as i64);
 		icons.push(m.workshop_icon_url.clone());
 		descriptions.push(m.description.clone());
-		downloads.push(m.downloads_total as i32);
+		subscriptions_total.push(m.subscriptions_total as i32);
+		subscriptions.push(m.subscriptions as i32);
+		favorited_total.push(m.favorited_total as i32);
 		favorited.push(m.favorited as i32);
 		followers.push(m.followers as i32);
 		views.push(m.views as i64);
+		sessions.push(m.sessions as i32);
 		playtimes.push(m.playtime.clone());
 		comments.push(m.num_comments as i32);
 		votes_up.push(m.vote_data.as_ref().map(|v| v.votes_up).unwrap_or_default() as i32);
@@ -235,6 +252,7 @@ pub async fn update_mod_list(mods: &Vec<ModInfo>, db: &PgPool) -> Result<(), API
 				.unwrap_or_default() as i32,
 		);
 		score.push(m.vote_data.as_ref().map(|v| v.score).unwrap_or_default());
+		file_sizes.push(m.file_size.clone());
 
 		for v in &m.versions {
 			v_mod_ids.push(m.mod_id as i64);
@@ -281,40 +299,46 @@ pub async fn update_mod_list(mods: &Vec<ModInfo>, db: &PgPool) -> Result<(), API
 			mod_id, display_name, internal_name, author, author_id,
 			modside, homepage, mod_references, num_versions,
 			time_created, time_updated, workshop_icon_url, description,
-			downloads_total, favorited, followers, views,
-			playtime, num_comments, votes_up, votes_down, score
+			subscriptions_total, subscriptions, favorited_total, favorited, followers, views,
+			sessions, playtime, num_comments, votes_up, votes_down, score, file_size
 		)
 		SELECT *
 		FROM UNNEST(
 			$1::BIGINT[], $2::TEXT[], $3::TEXT[], $4::TEXT[], $5::BIGINT[],
 			$6::TEXT[], $7::TEXT[], $8::TEXT[], $9::INT[],
 			$10::BIGINT[], $11::BIGINT[], $12::TEXT[], $13::TEXT[],
-			$14::INT[], $15::INT[], $16::INT[], $17::BIGINT[],
-			$18::TEXT[], $19::INT[], $20::int[], $21::int[], $22::float8[]
+			$14::INT[], $15::INT[], $16::INT[], $17::INT[], $18::INT[], $19::BIGINT[],
+			$20::INT[], $21::TEXT[], $22::INT[],
+			$23::int[], $24::int[], $25::float8[], 
+			$26::TEXT[]
 		)
 		"#,
-		&ids,
-		&display_names,
-		&internal_names,
-		&authors,
-		&author_ids,
-		&modsides,
-		&homepages,
-		&mod_refs,
-		&num_versions,
-		&time_created,
-		&time_updated,
-		&icons,
-		&descriptions as &[Option<String>],
-		&downloads,
-		&favorited,
-		&followers,
-		&views,
-		&playtimes,
-		&comments,
-		&votes_up,
-		&votes_down,
-		&score
+		&ids, // 1
+		&display_names, // 2
+		&internal_names, // 3
+		&authors, // 4
+		&author_ids, // 5
+		&modsides, // 6
+		&homepages, // 7
+		&mod_refs, // 8
+		&num_versions, // 9
+		&time_created, // 10
+		&time_updated, // 11
+		&icons, // 12
+		&descriptions as &[Option<String>], // 13
+		&subscriptions_total, // 14
+		&subscriptions, // 15
+		&favorited_total, // 16
+		&favorited, // 17
+		&followers, // 18
+		&views, // 19
+		&sessions, // 20
+		&playtimes, // 21
+		&comments, // 22
+		&votes_up, // 23
+		&votes_down, // 24
+		&score, // 25
+		&file_sizes // 26
 	)
 	.execute(&mut *tx)
 	.await?;
@@ -412,7 +436,7 @@ pub async fn update_authors(mods: &[ModInfo], db: &PgPool, steam_api_key: &str) 
 	struct AuthorEntry<'a> {
 		author_id: i64,
 		author_names: Vec<String>,
-		total_downloads: i64,
+		total_subscriptions: i64,
 		total_views: i64,
 		total_favorited: i64,
 		mods: Vec<&'a ModInfo>,
@@ -467,7 +491,7 @@ pub async fn update_authors(mods: &[ModInfo], db: &PgPool, steam_api_key: &str) 
 		entries.push(AuthorEntry {
 			author_id: author_id as i64,
 			author_names,
-			total_downloads: author_mods.iter().map(|m| m.downloads_total as i64).sum(),
+			total_subscriptions: author_mods.iter().map(|m| m.subscriptions as i64).sum(),
 			total_views: author_mods.iter().map(|m| m.views as i64).sum(),
 			total_favorited: author_mods.iter().map(|m| m.favorited as i64).sum(),
 			mods: author_mods,
@@ -495,12 +519,12 @@ pub async fn update_authors(mods: &[ModInfo], db: &PgPool, steam_api_key: &str) 
 	for entry in &entries {
 		sqlx::query!(
 			r#"
-			INSERT INTO authors (author_id, author_names, total_downloads, total_views, total_favorited)
+			INSERT INTO authors (author_id, author_names, total_subscriptions, total_views, total_favorited)
 			VALUES ($1, $2, $3, $4, $5)
 			"#,
 			entry.author_id,
 			&entry.author_names as &[String],
-			entry.total_downloads,
+			entry.total_subscriptions,
 			entry.total_views,
 			entry.total_favorited
 		).execute(&mut *tx).await?;

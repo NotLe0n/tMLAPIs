@@ -117,18 +117,22 @@ pub async fn list_1_4(state: &State<Api14State>) -> Result<Value, APIError> {
 			time_updated: row.time_updated as u64,
 			workshop_icon_url: row.workshop_icon_url,
 			description: row.description,
-			downloads_total: row.downloads_total as u32,
+			subscriptions_total: row.subscriptions_total as u32,
+			subscriptions: row.subscriptions as u32,
+			favorited_total: row.favorited_total as u32,
 			favorited: row.favorited as u32,
 			followers: row.followers as u32,
 			views: row.views as u64,
 			playtime: row.playtime,
+			sessions: row.sessions as u32,
 			num_comments: row.num_comments as u32,
 
 			vote_data: Some(crate::steamapi::VoteData {
 				score: row.score,
 				votes_up: row.votes_up as u32,
 				votes_down: row.votes_down as u32,
-			})
+			}),
+			file_size: row.file_size,
 		})
 	}
 
@@ -156,14 +160,14 @@ pub async fn list_authors(state: &State<Api14State>) -> Result<Value, APIError> 
 					ORDER BY am.display_name
 				),
 				'total_mods', COUNT(am.mod_id),
-				'total_downloads', a.total_downloads,
+				'total_subscriptions', a.total_subscriptions,
 				'total_views', a.total_views,
 				'total_favorited', a.total_favorited
 			) AS result
 		FROM authors a
 		JOIN author_mods am USING (author_id)
 		GROUP BY a.author_id
-		ORDER BY a.total_downloads DESC
+		ORDER BY a.total_subscriptions DESC
 		"#
 	)
 	.fetch_all(db)

@@ -32,14 +32,14 @@ async fn get_author_info(steamid: u64, state: &State<Api14State>) -> Result<Cach
 			let author_data = steamapi::get_user_mods(steamid, &state.steam_api_key).await?;
 
 			let mut mods: Vec<ModInfo> = Vec::new();
-			let mut total_downloads: u64 = 0;
+			let mut total_subscriptions: u64 = 0;
 			let mut total_favorites: u64 = 0;
 			let mut total_views: u64 = 0;
 
 			// go through each mod
 			for publishedfiledetail in author_data.publishedfiledetails.unwrap_or_default() {
 				// increment total counts
-				total_downloads += publishedfiledetail.subscriptions.unwrap_or_default() as u64;
+				total_subscriptions += publishedfiledetail.subscriptions.unwrap_or_default() as u64;
 				total_favorites += publishedfiledetail.favorited.unwrap_or_default() as u64;
 				total_views += publishedfiledetail.views.unwrap_or_default() as u64;
 
@@ -53,7 +53,7 @@ async fn get_author_info(steamid: u64, state: &State<Api14State>) -> Result<Cach
 				steam_avatar: steam_user.avatarfull,
 				mods,
 				total: author_data.total,
-				total_downloads,
+				total_subscriptions,
 				total_favorites,
 				total_views,
 			};
